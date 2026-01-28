@@ -1,48 +1,59 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Plus, Image as ImageIcon } from "lucide-react";
+import { useState } from "react";
+import { Image as ImageIcon, Upload } from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function AdminBannersPage() {
-  const [banners, setBanners] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [preview, setPreview] = useState(null); // ✅ FALTABA
+  const [loadingBanner, setLoadingBanner] = useState(false);
+  const [loadingHero, setLoadingHero] = useState(false);
 
-  const [form, setForm] = useState({
-    title: "",
-    subtitle: "",
-    order: 0,
-    link: "",
-    image: null,
-  });
+  const [previewBanner, setPreviewBanner] = useState(null);
+  const [previewHero, setPreviewHero] = useState(null);
 
-  // 🔹 Traer banners
-  const fetchBanners = async () => {
-    const apiUrl =
-      process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+  // ===========================
+  // HERO -> CLOUDINARY DIRECTO
+  // ===========================
 
-    const res = await fetch(`${apiUrl}/banners`);
-    const data = await res.json();
-    setBanners(data);
-  };
-
-  useEffect(() => {
-    fetchBanners();
-  }, []);
-
-  // 🔹 Submit
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!form.image) return alert("Seleccioná una imagen");
-
-    setLoading(true);
+  const uploadHero = async (file) => {
+    setLoadingHero(true);
 
     const data = new FormData();
-    data.append("image", form.image);
-    data.append("title", form.title);
-    data.append("subtitle", form.subtitle);
-    data.append("order", form.order);
-    data.append("link", form.link);
+    data.append("file", file);
+    data.append(
+      "upload_preset",
+      process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
+    );
+
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+
+    const res = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+      {
+        method: "POST",
+        body: data,
+      }
+    );
+
+    const result = await res.json();
+
+    localStorage.setItem("heroImage", result.secure_url);
+
+    setPreviewHero(result.secure_url);
+    setLoadingHero(false);
+
+    alert("Hero actualizado ✅");
+  };
+
+  // ===========================
+  // BANNER -> BACKEND
+  // ===========================
+
+  const uploadBanner = async (file) => {
+    setLoadingBanner(true);
+
+    const data = new FormData();
+    data.append("image", file);
 
     const apiUrl =
       process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
@@ -52,117 +63,111 @@ export default function AdminBannersPage() {
       body: data,
     });
 
-    // 🔄 Reset
-    setForm({
-      title: "",
-      subtitle: "",
-      order: 0,
-      link: "",
-      image: null,
-    });
-    setPreview(null); // ✅ limpiar preview
+    setPreviewBanner(null);
+    setLoadingBanner(false);
 
-    await fetchBanners();
-    setLoading(false);
+    alert("Banner cargado ✅");
   };
 
   return (
-    <div className="space-y-8">
-      {/* HEADER */}
-      <div>
-        <h1 className="text-3xl font-bold">Banners / Carrusel</h1>
-        <p className="text-sm text-gray-500">
-          Administrá las imágenes del carrusel
-        </p>
-      </div>
+    <div className="space-y-12">
 
-      {/* FORM */}
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white border rounded-xl p-6 space-y-4 max-w-xl"
+      {/* ================= HERO ================= */}
+
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white border rounded-2xl p-6 max-w-xl shadow-sm"
       >
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          <Plus className="w-5 h-5" /> Nuevo banner
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <ImageIcon className="w-5 h-5" />
+          Imagen principal (Hero Home)
         </h2>
 
-        {/* IMAGEN */}
-        <div className="space-y-2">
-          {!preview ? (
-            <label className="flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-6 cursor-pointer hover:bg-gray-50">
-              <ImageIcon className="w-8 h-8 text-gray-400" />
-              <span className="text-sm text-gray-500 mt-2">
-                Seleccionar imagen
-              </span>
+        {!previewHero ? (
+          <label className="flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-8 cursor-pointer hover:bg-gray-50 transition">
+            <Upload className="w-10 h-10 text-gray-400" />
+            <span className="text-sm text-gray-500 mt-2">
+              Subir nueva imagen del hero
+            </span>
 
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-
-                  setForm({ ...form, image: file });
-                  setPreview(URL.createObjectURL(file));
-                }}
-              />
-            </label>
-          ) : (
-            <div className="relative w-full">
-              <img
-                src={preview}
-                className="w-full h-48 object-cover rounded-xl border"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  setPreview(null);
-                  setForm({ ...form, image: null });
-                }}
-                className="absolute top-2 right-2 bg-black/70 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-black"
-              >
-                ✕
-              </button>
-            </div>
-          )}
-        </div>
-
-        <button
-          disabled={loading}
-          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-semibold"
-        >
-          {loading ? "Subiendo..." : "Subir banner"}
-        </button>
-      </form>
-
-      {/* LISTADO */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {banners.map((banner) => (
-          <div
-            key={banner.id}
-            className="bg-white border rounded-xl overflow-hidden shadow-sm"
-          >
-            <img
-              src={banner.imageUrl}
-              alt={banner.title}
-              className="w-full h-40 object-cover"
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                uploadHero(file);
+              }}
             />
-
-            <div className="p-4 space-y-1">
-              <p className="font-semibold">{banner.title || "—"}</p>
-              <p className="text-sm text-gray-500">
-                {banner.subtitle || "—"}
-              </p>
-              <p className="text-xs text-blue-600 truncate">
-                Link: {banner.link || "-"}
-              </p>
-              <p className="text-xs text-gray-400">
-                Orden: {banner.order}
-              </p>
-            </div>
+          </label>
+        ) : (
+          <div className="relative">
+            <img
+              src={previewHero}
+              className="w-full h-56 object-cover rounded-xl border"
+            />
+            <button
+              onClick={() => setPreviewHero(null)}
+              className="absolute top-2 right-2 bg-black/70 text-white rounded-full w-8 h-8"
+            >
+              ✕
+            </button>
           </div>
-        ))}
-      </div>
+        )}
+
+        {loadingHero && (
+          <p className="text-sm text-gray-500 mt-2">Subiendo hero...</p>
+        )}
+      </motion.div>
+
+      {/* ================= BANNERS ================= */}
+
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="bg-white border rounded-2xl p-6 max-w-xl shadow-sm"
+      >
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <ImageIcon className="w-5 h-5" />
+          Imagenes del carrusel
+        </h2>
+
+        {!previewBanner ? (
+          <label className="flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-8 cursor-pointer hover:bg-gray-50 transition">
+            <Upload className="w-10 h-10 text-gray-400" />
+            <span className="text-sm text-gray-500 mt-2">
+              Subir nuevo banner
+            </span>
+
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+
+                setPreviewBanner(URL.createObjectURL(file));
+                uploadBanner(file);
+              }}
+            />
+          </label>
+        ) : (
+          <div className="relative">
+            <img
+              src={previewBanner}
+              className="w-full h-48 object-cover rounded-xl border"
+            />
+          </div>
+        )}
+
+        {loadingBanner && (
+          <p className="text-sm text-gray-500 mt-2">Subiendo banner...</p>
+        )}
+      </motion.div>
     </div>
   );
 }
