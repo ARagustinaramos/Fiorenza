@@ -70,7 +70,7 @@ cp .env.example .env
 npm run dev
 ```
 
-El backend estará corriendo en `http://localhost:5000`
+El backend estará corriendo en `http://localhost:3001`
 
 ### Frontend
 
@@ -145,4 +145,11 @@ Asegúrate de que el backend esté corriendo antes de iniciar el frontend, ya qu
 ## 📄 Licencia
 
 ISC
+
+
+
+
+
+
+
 

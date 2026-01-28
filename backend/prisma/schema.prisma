@@ -1,0 +1,220 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MAYORISTA
+  MINORISTA
+}
+
+enum OrderType {
+  MAYORISTA
+  MINORISTA
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id          String  @id @default(uuid())
+  email       String  @unique
+  password    String
+  rol         Role    @default(MAYORISTA)
+  activo      Boolean @default(true)
+  coeficiente Float   @default(0)
+
+  perfil Perfil?
+
+  favorites      Favorite[]
+  orders         Order[]
+  passwordResets PasswordReset[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+}
+
+model Perfil {
+  id               String  @id @default(uuid())
+  nombreCompleto   String
+  telefono         String?
+  cuitCuil         String
+  empresa          String
+  cargo            String?
+  coeficienteVenta Float   @default(0)
+  avatarUrl        String?
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+model Brand {
+  id     String  @id @default(uuid())
+  nombre String
+  activo Boolean @default(true)
+
+  products Product[]
+
+  @@index([nombre])
+}
+
+model Family {
+  id     String  @id @default(uuid())
+  nombre String
+  activo Boolean @default(true)
+
+  products Product[]
+
+  @@index([nombre])
+}
+
+model ProductImage {
+  id            String  @id @default(uuid())
+  url           String
+  publicId      String?
+  codigoInterno String?
+
+  product Product? @relation(name: "ProductImagesByCodigoInterno", fields: [codigoInterno], references: [codigoInterno])
+
+  orden       Int      @default(0)
+  esPrincipal Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([codigoInterno])
+}
+
+model Product {
+  id String @id @default(uuid())
+
+  codigoInterno             String  @unique
+  codigoOriginal            String?
+  codigoOriginalNormalizado String?
+
+  descripcion          String
+  descripcionAdicional String?
+
+  precioConIva          Float
+  precioMayoristaSinIva Float?
+
+  stock Int @default(0)
+
+  marcaId   String
+  familiaId String
+
+  marca   Brand  @relation(fields: [marcaId], references: [id])
+  familia Family @relation(fields: [familiaId], references: [id])
+
+  rubro  String?
+  activo Boolean @default(true)
+
+  esOferta  Boolean @default(false)
+  esNovedad Boolean @default(false)
+
+  images ProductImage[] @relation("ProductImagesByCodigoInterno")
+
+  favorites  Favorite[]
+  orderItems OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([codigoOriginalNormalizado])
+}
+
+model Favorite {
+  id        String @id @default(uuid())
+  userId    String
+  productId String
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+}
+
+model Order {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  type          OrderType
+  status        OrderStatus   @default(PENDING)
+  paymentStatus PaymentStatus @default(PENDING)
+
+  paymentMethod String? // "mercadopago", "clover", "transferencia"
+  paymentRef    String? // id externo MP / Clover
+
+  totalAmount Decimal @db.Decimal(10, 2)
+
+  items OrderItem[]
+
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@index([paymentStatus])
+}
+
+model OrderItem {
+  id String @id @default(uuid())
+
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  quantity  Int
+  unitPrice Decimal @db.Decimal(10, 2)
+  subtotal  Decimal @db.Decimal(10, 2)
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model PasswordReset {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+
+  user User @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model Banner {
+  id        Int      @id @default(autoincrement())
+  imageUrl  String
+  publicId  String
+  title     String?
+  subtitle  String?
+  link      String?
+  order     Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
