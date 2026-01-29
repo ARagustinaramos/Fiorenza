@@ -9,13 +9,14 @@ import adminTestRoutes from "./src/routes/test.admin.js";
 import ordersRoutes from "./src/routes/orders.js";
 import favoritesRoutes from "./src/routes/favorites.js";
 import bannerRoutes from "./src/routes/banner.routes.js";
+import downloadsRoutes from "./src/routes/downloads.routes.js";
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Middlewares globales
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -47,6 +48,8 @@ app.use("/api/users", usersRoutes);
 app.use("/test", adminTestRoutes);
 
 app.use("/api/banners", bannerRoutes);
+
+app.use("/downloads", downloadsRoutes);
 
 // Manejo de rutas no encontradas (404)
 app.use((req, res) => {

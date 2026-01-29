@@ -11,68 +11,71 @@ export default function AdminBannersPage() {
   const [previewBanner, setPreviewBanner] = useState(null);
   const [previewHero, setPreviewHero] = useState(null);
 
-  // ===========================
-  // HERO -> CLOUDINARY DIRECTO
-  // ===========================
 
   const uploadHero = async (file) => {
     setLoadingHero(true);
 
-    const data = new FormData();
-    data.append("file", file);
-    data.append(
-      "upload_preset",
-      process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
-    );
+    try {
+      const data = new FormData();
+      data.append("file", file);
+      data.append(
+        "upload_preset",
+        process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
+      );
 
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
 
-    const res = await fetch(
-      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-      {
-        method: "POST",
-        body: data,
-      }
-    );
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+        {
+          method: "POST",
+          body: data,
+        }
+      );
 
-    const result = await res.json();
+      if (!res.ok) throw new Error("Error en Cloudinary");
+      const result = await res.json();
 
-    localStorage.setItem("heroImage", result.secure_url);
+      localStorage.setItem("heroImage", result.secure_url);
 
-    setPreviewHero(result.secure_url);
-    setLoadingHero(false);
-
-    alert("Hero actualizado ✅");
+      setPreviewHero(result.secure_url);
+      alert("Hero actualizado ✅");
+    } catch (error) {
+      alert("Error al subir la imagen");
+      console.error(error);
+    } finally {
+      setLoadingHero(false);
+    }
   };
-
-  // ===========================
-  // BANNER -> BACKEND
-  // ===========================
 
   const uploadBanner = async (file) => {
     setLoadingBanner(true);
 
-    const data = new FormData();
-    data.append("image", file);
+    try {
+      const data = new FormData();
+      data.append("image", file);
 
-    const apiUrl =
-      process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+      const apiUrl =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
-    await fetch(`${apiUrl}/banners`, {
-      method: "POST",
-      body: data,
-    });
+      const res = await fetch(`${apiUrl}/banners`, {
+        method: "POST",
+        body: data,
+      });
 
-    setPreviewBanner(null);
-    setLoadingBanner(false);
-
-    alert("Banner cargado ✅");
+      if (!res.ok) throw new Error("Error en API");
+      setPreviewBanner(null);
+      alert("Banner cargado ✅");
+    } catch (error) {
+      alert("Error al guardar el banner");
+    } finally {
+      setLoadingBanner(false);
+    }
   };
 
   return (
     <div className="space-y-12">
 
-      {/* ================= HERO ================= */}
 
       <motion.div
         initial={{ opacity: 0, y: 30 }}
@@ -121,8 +124,6 @@ export default function AdminBannersPage() {
           <p className="text-sm text-gray-500 mt-2">Subiendo hero...</p>
         )}
       </motion.div>
-
-      {/* ================= BANNERS ================= */}
 
       <motion.div
         initial={{ opacity: 0, y: 30 }}

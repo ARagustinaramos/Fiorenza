@@ -13,6 +13,7 @@
   "license": "ISC",
   "dependencies": {
     "@prisma/client": "^6.19.1",
+    "axios": "^1.13.4",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
     "bluebird": "^3.7.2",
@@ -27,7 +28,8 @@
     "multer": "^2.0.2",
     "nodemailer": "^7.0.13",
     "prisma": "^6.19.1",
-    "resend": "^6.7.0"
+    "resend": "^6.7.0",
+    "streamifier": "^0.1.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

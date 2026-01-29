@@ -9,6 +9,7 @@ import {
   Users,
   UserPlus,
   Image,
+  Download,
 } from "lucide-react";
 
 export default function AdminSidebar() {
@@ -23,6 +24,7 @@ export default function AdminSidebar() {
     { label: "Clientes", href: "/admin/clientes", icon: Users },
     { label: "Nuevo cliente", href: "/admin/clientes/nuevo", icon: UserPlus },
     { label: "Banners", href: "/admin/banners", icon: Image },
+    { label: "Descargas", href: "/admin/downloads", icon: Download },
   ];
 
   return (

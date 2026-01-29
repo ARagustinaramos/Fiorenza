@@ -24,7 +24,6 @@ import {
         items,
       });
 
-      // 👉 enviar mail al crear pedido mayorista
       await sendNewWholesaleOrderMail(order);
 
     } else if (type === "MINORISTA") {
@@ -34,8 +33,6 @@ import {
         type,
         items,
       });
-
-      // 👉 ACÁ después va Mercado Pago
 
     } else {
       return res.status(400).json({

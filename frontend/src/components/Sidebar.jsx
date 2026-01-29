@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
-import { Home, User, ShoppingBag } from "lucide-react";
+import { Home, User, ShoppingBag, Download } from "lucide-react";
 
 export function Sidebar({ children }) {
   const pathname = usePathname();
@@ -23,6 +23,7 @@ export function Sidebar({ children }) {
     { label: "Productos", href: getProductsPath(), icon: Home },
     { label: "Perfil", href: "/dashboard/pefil", icon: User },
     { label: "Pedidos", href: "/dashboard/pedidos", icon: ShoppingBag },
+    { label: "Descargas", href: "/dashboard/descargas", icon: Download },
   ];
 
   return (
@@ -42,11 +43,10 @@ export function Sidebar({ children }) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                  active
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${active
                     ? "bg-red-600 text-white shadow-md"
                     : "text-gray-700 hover:bg-white hover:text-red-600"
-                }`}
+                  }`}
               >
                 <Icon className="w-5 h-5" />
                 <span className="font-medium">{item.label}</span>
@@ -55,10 +55,10 @@ export function Sidebar({ children }) {
           })}
         </nav>
         {children && (
-  <div className="mt-8">
-    {children}
-  </div>
-)}
+          <div className="mt-[2px]">
+            {children}
+          </div>
+        )}
       </div>
     </aside>
   );

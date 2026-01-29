@@ -63,7 +63,6 @@ export function OffersCarousel() {
         ))}
       </Slider>
 
-      {/* slick styles */}
       <style>{`
         .slick-dots {
           position: absolute;

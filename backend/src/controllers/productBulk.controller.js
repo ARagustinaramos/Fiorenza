@@ -50,7 +50,7 @@ export const bulkUpload = async (req, res) => {
       return res.status(400).json({ error: "Archivo requerido" });
     }
 
-    const { mode = "upsert" } = req.body; // 🔥 CLAVE
+    const { mode = "upsert" } = req.body; 
     console.log(`[BULK UPLOAD] Iniciando modo: ${mode}`);
     console.log(`[BULK UPLOAD] Body recibido:`, req.body);
 
@@ -69,7 +69,6 @@ export const bulkUpload = async (req, res) => {
       const headerRow = worksheet.getRow(1);
       const headers = headerRow.values.slice(1).map((h) => normalizeHeader(h));
 
-      // ⚠️ Validar columnas SOLO si no es DELETE mode
       if (mode !== "delete") {
         const missingColumns = REQUIRED_COLUMNS.filter(
           (col) => !headers.includes(col)
@@ -82,7 +81,7 @@ export const bulkUpload = async (req, res) => {
           });
         }
       } else {
-        // En DELETE mode solo necesitamos CODIGO INTERNO
+    
         if (!headers.includes("CODIGO INTERNO")) {
           return res.status(400).json({
             error: `Columna CODIGO INTERNO faltante en hoja ${worksheet.name}`,
@@ -110,7 +109,7 @@ export const bulkUpload = async (req, res) => {
 
               console.log(`[BULK DEBUG] Fila ${rowNumber} - CodigoInterno: "${item.codigoInterno}"`);
 
-              // ⚠️ En modo DELETE solo necesitamos CODIGO INTERNO
+              
               if (mode === "delete") {
                 if (!item.codigoInterno) {
                   skipped++;
@@ -195,7 +194,7 @@ export const bulkUpload = async (req, res) => {
 
               console.log(`[BULK DEBUG] Buscando ${item.codigoInterno} -> Encontrado: ${!!existingProduct}`);
 
-              // 🔥 MODO UPDATE - Solo actualiza si existe
+           
               if (mode === "update") {
                 if (!existingProduct) {
                   skipped++;
@@ -225,10 +224,9 @@ export const bulkUpload = async (req, res) => {
                 continue;
               }
 
-              // 🔥 MODO CREATE - Solo crea si NO existe
               if (mode === "create") {
                 if (existingProduct) {
-                  // Si existe pero está inactivo (borrado lógico), lo reactivamos y actualizamos
+                  
                   if (!existingProduct.activo) {
                     console.log(`[BULK DEBUG] Reactivando producto inactivo: ${item.codigoInterno}`);
                     await prisma.product.update({
@@ -280,7 +278,7 @@ export const bulkUpload = async (req, res) => {
                 continue;
               }
 
-              // 🔥 MODO UPSERT (por defecto) - Crea o actualiza
+             
               if (existingProduct) {
                 await prisma.product.update({
                   where: { id: existingProduct.id },

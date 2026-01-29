@@ -131,7 +131,7 @@ export const forgotPassword = async (req, res) => {
 
     res.json({
       message: "RESET_EMAIL_SENT",
-      token, // ⚠️ solo porque usás EmailJS en front
+      token,
     });
   } catch (error) {
     console.error("FORGOT_PASSWORD_ERROR", error);
