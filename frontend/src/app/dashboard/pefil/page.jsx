@@ -73,8 +73,6 @@ export default function Perfil() {
       alert("La imagen no puede superar los 5MB");
       return;
     }
-
-    // Validar variables de entorno
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
     const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
@@ -104,7 +102,6 @@ export default function Perfil() {
 
       const data = await res.json();
 
-      // Validar respuesta
       if (!res.ok) {
         console.error("❌ Error de Cloudinary:", data);
         throw new Error(
@@ -119,7 +116,6 @@ export default function Perfil() {
 
       console.log("✓ Imagen subida correctamente:", data.secure_url);
       
-      // También actualizar el form
       setForm((prev) => ({ ...prev, avatarUrl: data.secure_url }));
     } catch (err) {
       console.error("❌ Error subiendo imagen:", err);
@@ -140,8 +136,6 @@ export default function Perfil() {
         alert("Debes iniciar sesión para actualizar tu perfil");
         return;
       }
-
-      // Validar campos requeridos
       if (!form.nombreCompleto || !form.cuitCuil || !form.empresa) {
         alert("Por favor completa los campos obligatorios: Nombre completo, CUIT/CUIL y Empresa");
         return;
@@ -176,8 +170,7 @@ export default function Perfil() {
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ error: "Error desconocido" }));
-        
-        // Mensajes de error más específicos
+      
         const errorMessages = {
           NOMBRE_COMPLETO_REQUIRED: "El nombre completo es obligatorio",
           CUIT_CUIL_REQUIRED: "El CUIT/CUIL es obligatorio",
@@ -194,7 +187,6 @@ export default function Perfil() {
       
       console.log("[DEBUG] Datos después de actualizar:", updatedData);
 
-      // Actualizar el formulario con los datos devueltos
       setForm({
         ...form,
         nombreCompleto: updatedData.perfil?.nombreCompleto || form.nombreCompleto,

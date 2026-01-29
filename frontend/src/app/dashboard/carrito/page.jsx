@@ -66,7 +66,7 @@ export default function Carrito() {
       const payload = {
         type: orderType,
         items: cartItems.map((item) => ({
-          productId: item.id, // 👈 ID real del producto
+          productId: item.id, 
           quantity: item.cantidad,
         })),
       };
@@ -89,10 +89,9 @@ export default function Carrito() {
 
       const order = await res.json();
 
-      // 🧹 vaciar carrito
+   
       dispatch(clearCart());
 
-      // ➜ ir a mis pedidos
       router.push("/dashboard/pedidos");
     } catch (error) {
       console.error(error);
@@ -115,7 +114,6 @@ export default function Carrito() {
       <div className="bg-gray-50 py-6 px-4 md:px-8">
         <div className="max-w-[1360px] mx-auto flex flex-col lg:flex-row gap-6 items-start">
 
-          {/* ================= IZQUIERDA: TABLA ================= */}
           <div className="flex-1 w-full">
             <div className="bg-white rounded-lg border border-[#D9D9D9] overflow-hidden shadow-sm">
 

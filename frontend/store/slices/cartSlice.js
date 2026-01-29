@@ -22,21 +22,20 @@ const cartSlice = createSlice({
       )
 
       if (existingItem) {
-        // Si el producto ya está en el carrito, incrementar cantidad
+     
         existingItem.cantidad += 1
       } else {
-        // Si no está, agregarlo con cantidad 1
+   
         state.items.push({
           id: product.id,
           nombre: product.descripcion,
           codigo: product.codigoInterno || product.codigoOriginal || '-',
           precioUnitario: product.precioConIva || 0,
           cantidad: 1,
-          producto: product, // Guardar el producto completo por si se necesita
+          producto: product, 
         })
       }
 
-      // Guardar en localStorage
       if (typeof window !== 'undefined') {
         localStorage.setItem('cart', JSON.stringify(state.items))
       }
@@ -44,7 +43,6 @@ const cartSlice = createSlice({
     removeFromCart: (state, action) => {
       state.items = state.items.filter((item) => item.id !== action.payload)
       
-      // Actualizar localStorage
       if (typeof window !== 'undefined') {
         localStorage.setItem('cart', JSON.stringify(state.items))
       }

@@ -56,8 +56,6 @@ export const bulkImagesUpload = async (req, res) => {
           skipped++;
           continue;
         }
-
-        // 🔥 Subir a Cloudinary desde buffer
         const uploadResult = await cloudinary.uploader.upload(
           `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
           {
@@ -67,7 +65,6 @@ export const bulkImagesUpload = async (req, res) => {
           }
         );
 
-        // Guardar imagen relacionada al producto
         await prisma.productImage.create({
           data: {
             url: uploadResult.secure_url,

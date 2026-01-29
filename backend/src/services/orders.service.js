@@ -13,7 +13,7 @@ export const createOrderService = async ({ user, type, items }) => {
     throw new Error(errors.join(", "));
   }
 
-  // Validar rol (aceptar tanto mayúsculas como minúsculas)
+
   const userRol = user.rol?.toUpperCase();
   if (
     (type === "MAYORISTA" && userRol !== "MAYORISTA") ||
@@ -44,7 +44,6 @@ export const createOrderService = async ({ user, type, items }) => {
         throw new Error(`PRODUCT_NOT_FOUND: Producto con ID ${item.productId} está inactivo`);
       }
 
-      // Solo validamos stock si NO es mayorista. Los mayoristas pueden comprar sin stock.
       if (type !== "MAYORISTA" && product.stock < item.quantity) {
         console.error(`Stock insuficiente: producto=${item.productId}, stock=${product.stock}, cantidad=${item.quantity}`);
         throw new Error(`INSUFFICIENT_STOCK: Stock insuficiente para producto ${item.productId}`);
@@ -98,9 +97,7 @@ export const createOrderService = async ({ user, type, items }) => {
   });
 };
 
-/**
- * Pedidos del usuario
- */
+
 export const getUserOrdersService = (userId) => {
   return prisma.order.findMany({
     where: { userId },
@@ -115,9 +112,6 @@ export const getUserOrdersService = (userId) => {
   });
 };
 
-/**
- * Todos los pedidos (admin)
- */
 export const getAllOrdersService = async ({
   status,
   type,
@@ -172,9 +166,7 @@ export const getAllOrdersService = async ({
   };
 };
 
-/**
- * Confirmar pedido (descuenta stock)
- */
+
 export const confirmOrderService = async (orderId) => {
   const confirmedOrder = await prisma.$transaction(async (tx) => {
     const order = await tx.order.findUnique({
@@ -215,14 +207,10 @@ export const confirmOrderService = async (orderId) => {
     });
   });
 
-  // El email ya se envió al crear la orden (en createWholesaleOrderFlow)
-  // No es necesario enviarlo nuevamente al confirmar
+ 
   return confirmedOrder;
 };
 
-/**
- * Cancelar pedido
- */
 export const cancelOrderService = async (orderId) => {
   return prisma.$transaction(async (tx) => {
     const order = await tx.order.findUnique({
@@ -255,9 +243,7 @@ export const cancelOrderService = async (orderId) => {
   });
 };
 
-/**
- * Actualizar estado (admin / sistema)
- */
+
 export const updateOrderStatusService = async ({ orderId, newStatus }) => {
   return prisma.$transaction(async (tx) => {
     const order = await tx.order.findUnique({
@@ -299,9 +285,7 @@ export const updateOrderStatusService = async ({ orderId, newStatus }) => {
   });
 };
 
-/**
- * Pedido por ID
- */
+
 export const getOrderByIdService = async (id) => {
   const order = await prisma.order.findUnique({
     where: { id },
@@ -375,22 +359,19 @@ export const previewOrderService = async ({ user, type, items }) => {
 };
 
 export const createWholesaleOrderFlow = async ({ user, items }) => {
-  // 1. Preview
+
   const preview = await previewOrderService({
     user,
     type: "MAYORISTA",
     items,
   });
 
-  // 2. Enviar mail (no debe bloquear la creación de la orden si falla)
   try {
     await sendNewWholesaleOrderMail(preview);
   } catch (emailError) {
     console.error("Error al enviar email de pedido mayorista:", emailError);
-    // Continuamos con la creación de la orden aunque falle el email
   }
 
-  // 3. Crear orden real
   return createOrderService({
     user,
     type: "MAYORISTA",

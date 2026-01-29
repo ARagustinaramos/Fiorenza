@@ -26,7 +26,6 @@ export default function Pedidos() {
 
   useEffect(() => {
     fetchOrders();
-    // Polling cada 10 segundos para sincronizar cambios del admin
     const interval = setInterval(fetchOrders, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -142,7 +141,7 @@ export default function Pedidos() {
     }
   };
 
-  // Actualizar el detalle del pedido si cambia en el servidor
+ 
   useEffect(() => {
     if (!selectedOrder) return;
 
@@ -160,7 +159,6 @@ export default function Pedidos() {
 
         if (res.ok) {
           const data = await res.json();
-          // Solo actualizar si el estado cambió
           if (data.status !== selectedOrder.status) {
             setSelectedOrder(data);
             setLastUpdate(new Date());
@@ -171,7 +169,6 @@ export default function Pedidos() {
       }
     };
 
-    // Verificar cada 5 segundos si el pedido fue actualizado
     const interval = setInterval(refreshDetail, 5000);
     return () => clearInterval(interval);
   }, [selectedOrder]);
@@ -180,9 +177,8 @@ export default function Pedidos() {
     <div className="max-w-7xl mx-auto">
             <h1 className="text-4xl font-bold mb-8">Mis Pedidos</h1>
 
-            {/* Tabla */}
             <div className="bg-white rounded-lg border border-[#D9D9D9] overflow-hidden shadow-sm">
-              {/* Header */}
+              
               <div className="bg-[#1E3A8A] text-white grid grid-cols-[150px_120px_150px_1fr_120px_120px] gap-4 px-6 py-4">
                 <div className="text-sm font-bold">Número</div>
                 <div className="text-sm font-bold">Fecha</div>
@@ -192,7 +188,7 @@ export default function Pedidos() {
                 <div className="text-sm font-bold">Acción</div>
               </div>
 
-              {/* Filas */}
+              
               {loading ? (
                 <div className="p-12 text-center text-gray-500">
                   Cargando pedidos...
@@ -265,7 +261,6 @@ export default function Pedidos() {
               )}
             </div>
 
-            {/* Resumen */}
             {!loading && !error && (
               <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-white p-6 rounded-lg shadow-sm">
@@ -296,11 +291,9 @@ export default function Pedidos() {
               </div>
             )}
 
-      {/* Modal de detalle del pedido */}
       {selectedOrder && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white w-full max-w-2xl rounded-lg shadow-lg p-6 relative">
-            {/* Cerrar */}
             <button
               onClick={() => setSelectedOrder(null)}
               className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"
@@ -312,7 +305,6 @@ export default function Pedidos() {
               Pedido {formatOrderNumber(selectedOrder.id)}
             </h2>
 
-            {/* Indicador de actualización automática */}
             {lastUpdate && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
                 ✓ Este pedido se sincroniza automáticamente. Última actualización: {lastUpdate.toLocaleTimeString('es-AR')}

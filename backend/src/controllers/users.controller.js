@@ -203,7 +203,6 @@ export const updateUserById = async (req, res) => {
       return res.status(404).json({ error: "USER_NOT_FOUND" });
     }
 
-    // Construir objeto de datos a actualizar
     const updateData = {};
 
     if (activo !== undefined) {

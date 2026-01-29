@@ -30,7 +30,7 @@ export const createProduct = async (req, res) => {
       });
     }
 
-    // Verificar si ya existe (incluso si está inactivo)
+    // Verificar si ya existe 
     const existingProduct = await prisma.product.findUnique({
       where: { codigoInterno: req.body.codigoInterno },
     });
@@ -43,7 +43,6 @@ export const createProduct = async (req, res) => {
         });
       }
 
-      // Si existe pero está inactivo, lo reactivamos y actualizamos
       const product = await prisma.product.update({
         where: { id: existingProduct.id },
         data: {
@@ -98,7 +97,7 @@ export const getProducts = async (req, res) => {
     const safeFamilia = escapeLike(familia);
     const safeRubro = escapeLike(rubro);
 
-    // Filtro por marca de repuesto
+
     if (marca) {
       filters.push(`
         immutable_unaccent(UPPER(m.nombre))
@@ -106,7 +105,6 @@ export const getProducts = async (req, res) => {
       `);
     }
 
-    // Filtro por familia de auto
     if (familia) {
       const familias = familia
         .split(",")
@@ -131,7 +129,7 @@ export const getProducts = async (req, res) => {
         filters.push(`(${condiciones})`);
       }
     }
-    // Filtro por rubro (categoría)
+
     if (rubro) {
       filters.push(`
         immutable_unaccent(UPPER(p.rubro))
@@ -139,12 +137,10 @@ export const getProducts = async (req, res) => {
       `);
     }
 
-    // Filtro ofertas
     if (oferta === "true") {
       filters.push(`p."esOferta" = true`);
     }
 
-    // Filtro novedades
     if (novedad === "true") {
       filters.push(`p."esNovedad" = true`);
     }
@@ -152,7 +148,7 @@ export const getProducts = async (req, res) => {
       .split(" ")
       .map(w => w.trim())
       .filter(Boolean);
-    // 🔍 Búsqueda avanzada por texto (palabras mezcladas + abreviaturas)
+
     if (q && words.length) {
       const conditions = words.map(word => {
         const safeWord = escapeLike(word);

@@ -27,7 +27,7 @@ export const getFavoritesService = async (userId) => {
 
 export const addFavoriteService = async (userId, productId) => {
   try {
-    // Verificar que el producto existe y está activo
+ 
     const product = await prisma.product.findUnique({
       where: { id: productId },
     });

@@ -9,7 +9,6 @@ export default function ContactForm() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState(null);
 
-  // Inicializar EmailJS una sola vez
   useEffect(() => {
     const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
     
@@ -142,7 +141,6 @@ export default function ContactForm() {
           />
         </div>
 
-        {/* Mensaje de éxito */}
         {success && (
           <div className="sm:col-span-2 p-4 bg-green-50 border border-green-200 rounded-lg">
             <p className="text-sm text-green-700 flex items-center gap-2">
@@ -155,7 +153,6 @@ export default function ContactForm() {
           </div>
         )}
 
-        {/* Mensaje de error */}
         {error && (
           <div className="sm:col-span-2 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-sm text-red-700 flex items-center gap-2">
