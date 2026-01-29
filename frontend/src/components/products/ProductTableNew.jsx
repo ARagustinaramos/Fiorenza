@@ -43,6 +43,8 @@ export function ProductTableNew() {
   { key: "renault", label: "Renault", searchName: "Renault", logo: "/brands/renault.png", },
   { key: "wv", label: "Volkswagen", searchName: "VW", logo: "/brands/wv.png", },
   { key: "ford", label: "Ford", searchName: "Ford", logo: "/brands/ford.png", },
+  { key: "universal", label: "Universal", searchName: "Universal", logo: "/brands/universal.png", },
+
   ];
 
   useEffect(() => {

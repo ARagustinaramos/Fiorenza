@@ -316,10 +316,10 @@ export default function AdminProductos() {
         </div>
         <div className="bg-white rounded-lg shadow-sm border border-red-200 p-6 mb-6">
           <h2 className="text-lg font-semibold mb-2 text-red-700">
-            Borrar / desactivar productos
+            Borrar productos
           </h2>
           <p className="text-sm text-gray-600 mb-4">
-            El Excel debe contener la columna <b>BAJA</b> con valor <b>SI</b>.
+           Borrar productos existentes 
           </p>
 
           <div className="flex gap-4 items-end">
