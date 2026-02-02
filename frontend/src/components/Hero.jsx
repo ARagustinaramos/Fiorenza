@@ -14,22 +14,22 @@ export function Hero() {
   }, []);
 
   return (
-    <section className="relative h-[500px] flex items-center justify-center">
-      <div
-        className="absolute inset-0 bg-cover bg-center transition-all duration-500"
-        style={{
-          backgroundImage: `url(${heroImage})`,
-        }}
-      />
+    <section className="relative h-[500px] md:h-[600px] lg:h-[700px] flex items-center justify-center overflow-hidden">
+ <div
+  className="absolute inset-0 bg-cover bg-center transition-transform duration-[4000ms] hover:scale-110"
+  style={{
+    backgroundImage: `url(${heroImage})`,
+  }}
+/>
 
       <div className="absolute inset-0 bg-black/30" />
 
       <div className="relative z-10 text-center text-white px-4">
         <h1 className="text-5xl font-bold mb-4">
-          Fiorenza Repuestos
+     
         </h1>
         <p className="text-xl">
-          Calidad y confianza desde 1980
+         
         </p>
       </div>
     </section>

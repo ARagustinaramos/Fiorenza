@@ -38,7 +38,8 @@ export function Navbar() {
 
   return (
     <>
-      <nav className="bg-gradient-to-r from-white to-red-50 h-20 px-8 flex items-center justify-between shadow-md border-b border-red-100">
+      <nav className="bg-gradient-to-l from-red-100 via-red-50 to-white h-20 px-8 flex items-center justify-between shadow-md border-b border-red-100">
+
         <Link
           href="/"
           className="text-3xl font-bold bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent hover:from-red-700 hover:to-red-900 transition-all"
@@ -69,11 +70,11 @@ export function Navbar() {
           )}
 
           {/* CARRITO */}
-          {user && (
-            <Link
-              href="/dashboard/carrito"
-              className="relative p-2 text-gray-700 hover:text-red-600 transition-colors hover:bg-gray-100 rounded-lg"
-            >
+          {user && user.rol !== "admin" && user.rol !== "ADMIN" && (
+  <Link
+    href="/dashboard/carrito"
+    className="relative p-2 text-gray-700 hover:text-red-600 transition-colors hover:bg-gray-100 rounded-lg"
+  >
               <ShoppingCart className="w-6 h-6" />
 
               {mounted && cartCount > 0 && (

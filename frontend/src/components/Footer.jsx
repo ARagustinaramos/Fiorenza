@@ -39,15 +39,24 @@ export function Footer() {
             <ul className="space-y-2 text-gray-400">
               <li>
                 <span className="block">Dirección:</span>
-                <span>Av. Principal 1234, Buenos Aires</span>
+                <span>Av. Rocardo Balbin (ex Mitre) 303
+                </span>
               </li>
               <li>
-                <span className="block">Teléfono:</span>
-                <span>+54 11 1234-5678</span>
+                <span className="block"></span>
+                <span>San Miguel (1663) – Prov de Bs. As.</span>
+              </li>
+              <li>
+                <span className="block">WhatsApp:</span>
+                <span>11 5344-4546 (solo mensajes)</span>
+              </li>
+              <li>
+                <span className="block">Telefonos:</span>
+                <span>4451-2577 // 4667-1222</span>
               </li>
               <li>
                 <span className="block">Email:</span>
-                <span>info@fiorenzaautomotores.com</span>
+                <span>info@fiorenzarepuestos.com.ar</span>
               </li>
             </ul>
           </div>

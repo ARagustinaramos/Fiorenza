@@ -152,7 +152,6 @@ export const getProducts = async (req, res) => {
     if (q && words.length) {
       const conditions = words.map(word => {
         const safeWord = escapeLike(word);
-        const normalizedWord = normalizeSearch(word);
 
         return `
       (
@@ -160,12 +159,6 @@ export const getProducts = async (req, res) => {
         OR immutable_unaccent(LOWER(p."descripcionAdicional")) ILIKE '%' || LOWER('${safeWord}') || '%'
         OR LOWER(p."codigoInterno") ILIKE '%' || LOWER('${safeWord}') || '%'
         OR CAST(p."codigoOriginal" AS TEXT) ILIKE '%' || '${safeWord}' || '%'
-        OR regexp_replace(
-            immutable_unaccent(LOWER(p.descripcion)),
-            '[^a-z0-9]',
-            '',
-            'g'
-          ) ILIKE '%' || '${normalizedWord}' || '%'
       )
     `;
       });
@@ -175,42 +168,53 @@ export const getProducts = async (req, res) => {
 
     const whereSQL = `WHERE ${filters.join(" AND ")}`;
 
-    const products = await prisma.$queryRawUnsafe(`
-  SELECT
-    p.*,
-    m.nombre AS marca,
-    f.nombre AS familia,
-    json_agg(
-      json_build_object(
-        'id', pi.id,
-        'url', pi.url,
-        'publicId', pi."publicId"
-      )
-    ) FILTER (WHERE pi.id IS NOT NULL) AS images
-  FROM "Product" p
-  JOIN "Brand" m ON m.id = p."marcaId"
-  JOIN "Family" f ON f.id = p."familiaId"
-  LEFT JOIN "ProductImage" pi 
-    ON pi."codigoInterno" = p."codigoInterno"
-  ${whereSQL}
-  GROUP BY p.id, m.id, f.id
-  ORDER BY p.descripcion
-  LIMIT ${Number(limit)}
-  OFFSET ${offset}
-`);
+    // Ejecutamos las consultas en paralelo para ganar velocidad
+    const [products, totalResult] = await Promise.all([
+      prisma.$queryRawUnsafe(`
+        SELECT
+          p.*,
+          m.nombre AS marca,
+          f.nombre AS familia
+        FROM "Product" p
+        JOIN "Brand" m ON m.id = p."marcaId"
+        JOIN "Family" f ON f.id = p."familiaId"
+        ${whereSQL}
+        ORDER BY p.descripcion
+        LIMIT ${Number(limit)}
+        OFFSET ${offset}
+      `),
+      prisma.$queryRawUnsafe(`
+        SELECT COUNT(DISTINCT p.id)::int AS count
+        FROM "Product" p
+        JOIN "Brand" m ON m.id = p."marcaId"
+        JOIN "Family" f ON f.id = p."familiaId"
+        ${whereSQL}
+      `),
+    ]);
 
+    // Obtenemos las imágenes solo para los productos de esta página (mucho más rápido que JOIN masivo)
+    const codigosInternos = products.map((p) => p.codigoInterno).filter(Boolean);
+    let imagesMap = {};
 
-    const total = await prisma.$queryRawUnsafe(`
-      SELECT COUNT(DISTINCT p.id)::int AS count
-      FROM "Product" p
-      JOIN "Brand" m ON m.id = p."marcaId"
-      JOIN "Family" f ON f.id = p."familiaId"
-      ${whereSQL}
-    `);
+    if (codigosInternos.length > 0) {
+      const images = await prisma.productImage.findMany({
+        where: { codigoInterno: { in: codigosInternos } },
+        select: { codigoInterno: true, id: true, url: true, publicId: true },
+      });
+
+      images.forEach((img) => {
+        if (!imagesMap[img.codigoInterno]) imagesMap[img.codigoInterno] = [];
+        imagesMap[img.codigoInterno].push(img);
+      });
+    }
 
     const rol = req.user?.rol;
+    const total = totalResult[0]?.count || 0;
 
     const sanitizedProducts = products.map((p) => {
+      // Asignamos las imágenes en memoria
+      p.images = imagesMap[p.codigoInterno] || [];
+
       if (rol !== "MAYORISTA") {
         delete p.stock;
         delete p.precioMayoristaSinIva;
@@ -223,8 +227,8 @@ export const getProducts = async (req, res) => {
       pagination: {
         page: Number(page),
         limit: Number(limit),
-        total: total[0].count,
-        pages: Math.ceil(total[0].count / Number(limit)),
+        total: Number(total),
+        pages: Math.ceil(Number(total) / Number(limit)),
       },
     });
   } catch (error) {

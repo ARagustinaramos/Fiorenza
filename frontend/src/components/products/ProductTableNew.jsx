@@ -1,15 +1,27 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { SearchableSelect } from "../ui/SearchableSelect";
 import { addToCart } from "../../../store/slices/cartSlice";
 import { Heart, Camera, Search, X } from "lucide-react";
 
+const BRANDS = [
+  { key: "chevrolet", label: "Chevrolet", searchName: "Chevrolet", logo: "/brands/chevrolet.png" },
+  { key: "fiat", label: "Fiat", searchName: "Fiat", logo: "/brands/fiat.png" },
+  { key: "citroen", label: "Citroën", searchName: "Citroën", logo: "/brands/citroen.png" },
+  { key: "peugeot", label: "Peugeot", searchName: "Peugeot", logo: "/brands/peugeot.png" },
+  { key: "renault", label: "Renault", searchName: "Renault", logo: "/brands/renault.png" },
+  { key: "wv", label: "Volkswagen", searchName: "VW", logo: "/brands/wv.png" },
+  { key: "ford", label: "Ford", searchName: "Ford", logo: "/brands/ford.png" },
+  { key: "universal", label: "Universal", searchName: "Universal", logo: "/brands/universal.png" },
+];
+
 export function ProductTableNew() {
   const router = useRouter();
   const dispatch = useDispatch();
+  const abortControllerRef = useRef(null);
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -36,17 +48,6 @@ export function ProductTableNew() {
   const [marcas, setMarcas] = useState([]);
   const [rubros, setRubros] = useState([]);
 
-  const BRANDS = [{ key: "chevrolet", label: "Chevrolet", searchName: "Chevrolet", logo: "/brands/chevrolet.png", },
-  { key: "fiat", label: "Fiat", searchName: "Fiat", logo: "/brands/fiat.png", },
-  { key: "citroen", label: "Citroën", searchName: "Citroën", logo: "/brands/citroen.png", },
-  { key: "peugeot", label: "Peugeot", searchName: "Peugeot", logo: "/brands/peugeot.png", },
-  { key: "renault", label: "Renault", searchName: "Renault", logo: "/brands/renault.png", },
-  { key: "wv", label: "Volkswagen", searchName: "VW", logo: "/brands/wv.png", },
-  { key: "ford", label: "Ford", searchName: "Ford", logo: "/brands/ford.png", },
-  { key: "universal", label: "Universal", searchName: "Universal", logo: "/brands/universal.png", },
-
-  ];
-
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.matchMedia("(max-width: 768px)").matches);
@@ -60,7 +61,7 @@ export function ProductTableNew() {
     const timer = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
       setPage(1);
-    }, 500);
+    }, 300);
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
@@ -164,6 +165,13 @@ export function ProductTableNew() {
 
   //  FETCH PRODUCTs
   const fetchProducts = useCallback(async () => {
+    // Cancelar petición anterior si existe para evitar condiciones de carrera
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       if (showFavorites) {
         setLoading(true);
@@ -221,6 +229,7 @@ export function ProductTableNew() {
 
       const res = await fetch(`${apiUrl}/products?${params.toString()}`, {
         headers,
+        signal: controller.signal,
       });
 
       if (!res.ok) {
@@ -232,9 +241,12 @@ export function ProductTableNew() {
       setProducts(data.data || []);
       setTotalPages(data.pagination?.pages || 1);
     } catch (error) {
+      if (error.name === "AbortError") return;
       console.error("Error cargando productos:", error);
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) {
+        setLoading(false);
+      }
     }
   }, [
     page,
@@ -332,6 +344,9 @@ export function ProductTableNew() {
             </p>
             <p className="text-sm">
               <strong>Descripción adicional:</strong> {hoveredProduct.descripcionAdicional}
+            </p>
+            <p className="text-sm">
+              <strong>Familia:</strong> {hoveredProduct.familia}
             </p>
             <div className="mt-3 space-y-2">
               <p className="text-sm text-gray-600">

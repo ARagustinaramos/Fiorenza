@@ -4,6 +4,19 @@ import { useEffect, useState } from "react";
 import { Upload, Edit } from "lucide-react";
 import { useRef } from "react";
 
+function Spinner({ size = 24 }) {
+  return (
+    <div
+      className="animate-spin rounded-full border-4 border-gray-300 border-t-red-500"
+      style={{
+        width: size,
+        height: size,
+      }}
+    />
+  );
+}
+
+
 export default function AdminProductos() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -171,6 +184,18 @@ export default function AdminProductos() {
       </div>
     );
   }
+  {
+    (uploadingExcel || uploadingImages) && (
+      <div className="fixed inset-0 bg-black/20 z-50 flex items-center justify-center">
+        <div className="bg-white p-6 rounded-xl shadow-lg flex flex-col items-center gap-3">
+          <Spinner size={40} />
+          <p className="text-gray-700 font-medium">
+            Procesando archivos...
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -264,7 +289,15 @@ export default function AdminProductos() {
                   disabled={uploadingExcel}
                   className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {uploadingExcel ? "Subiendo..." : "Subir archivo"}
+                  {uploadingExcel ? (
+                    <div className="flex items-center gap-2">
+                      <Spinner size={18} />
+                      Subiendo...
+                    </div>
+                  ) : (
+                    "Subir archivo"
+                  )}
+
                 </button>
               )}
             </div>
@@ -309,7 +342,14 @@ export default function AdminProductos() {
                 disabled={uploadingExcel}
                 className="px-6 py-3 bg-green-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {uploadingExcel ? "Subiendo..." : "Subir nuevos"}
+                {uploadingExcel ? (
+                  <div className="flex items-center gap-2">
+                    <Spinner size={18} />
+                    Subiendo...
+                  </div>
+                ) : (
+                  "Subir nuevos"
+                )}
               </button>
             )}
           </div>
@@ -319,7 +359,7 @@ export default function AdminProductos() {
             Borrar productos
           </h2>
           <p className="text-sm text-gray-600 mb-4">
-           Borrar productos existentes 
+            Borrar productos existentes
           </p>
 
           <div className="flex gap-4 items-end">
@@ -355,7 +395,15 @@ export default function AdminProductos() {
                 disabled={uploadingExcel}
                 className="px-6 py-3 bg-red-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {uploadingExcel ? "Procesando..." : "Ejecutar baja"}
+                {uploadingExcel ? (
+                  <div className="flex items-center gap-2">
+                    <Spinner size={18} />
+                    Procesando...
+                  </div>
+                ) : (
+                  "Ejecutar baja"
+                )}
+
               </button>
             )}
           </div>
@@ -412,7 +460,15 @@ export default function AdminProductos() {
                   disabled={uploadingImages}
                   className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {uploadingImages ? "Subiendo..." : `Subir ${imageFiles.length} imagen(es)`}
+                  {uploadingImages ? (
+                    <div className="flex items-center gap-2">
+                      <Spinner size={18} />
+                      Subiendo...
+                    </div>
+                  ) : (
+                    `Subir ${imageFiles.length} imagen(es)`
+                  )}
+
                 </button>
               )}
             </div>

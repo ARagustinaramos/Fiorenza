@@ -14,11 +14,7 @@ const getCellValue = (cell) => {
 
 const REQUIRED_COLUMNS = [
   "CODIGO INTERNO",
-  "CODIGO ORIGINAL",
-  "DESCRIPCION",
   "PRECIO PUBLICO FINAL CON IVA",
-  "MARCA",
-  "FAMILIA",
 ];
 
 const sanitizeText = (value) =>
@@ -34,6 +30,7 @@ const mapExcelToProduct = (row) => ({
   descripcionAdicional: sanitizeText(row["DESCRIPCION ADICIONAL"]),
   stock: Number(row["STOCK"]) || 0,
   precioConIva: Number(row["PRECIO PUBLICO FINAL CON IVA"]),
+  precioConIva: Number(row["PRECIO PUBLICO FINAL CON IVA"]) || 0,
   precioMayoristaSinIva: Number(row["PRECIO MAYORISTA SIN IVA"]) || null,
   marcaNombre: sanitizeText(row["MARCA"]),
   familiaNombre: sanitizeText(row["FAMILIA"]),
@@ -43,6 +40,44 @@ const mapExcelToProduct = (row) => ({
   baja: normalizeBoolean(row["BAJA"]),
 });
 
+// Helper para sincronizar Marcas y Familias en lote
+const syncMetadata = async (items, brandCache, familyCache) => {
+  const brandsToSync = new Set();
+  const familiesToSync = new Set();
+
+  items.forEach((item) => {
+    if (item.marcaNombre) brandsToSync.add(item.marcaNombre);
+    if (item.familiaNombre) familiesToSync.add(item.familiaNombre);
+  });
+
+  const syncEntity = async (namesSet, cache, model) => {
+    const names = Array.from(namesSet).filter((n) => !cache.has(n));
+    if (names.length === 0) return;
+
+    // 1. Buscar existentes
+    const existing = await model.findMany({ where: { nombre: { in: names } } });
+    existing.forEach((e) => cache.set(e.nombre, e));
+
+    // 2. Crear faltantes
+    const missing = names.filter((n) => !cache.has(n));
+    await Promise.all(
+      missing.map(async (name) => {
+        // upsert o create con manejo de error por si otro proceso lo crea
+        const created = await model.upsert({
+          where: { nombre: name },
+          update: {},
+          create: { nombre: name },
+        });
+        cache.set(name, created);
+      })
+    );
+  };
+
+  await Promise.all([
+    syncEntity(brandsToSync, brandCache, prisma.brand),
+    syncEntity(familiesToSync, familyCache, prisma.family),
+  ]);
+};
 
 export const bulkUpload = async (req, res) => {
   try {
@@ -89,7 +124,7 @@ export const bulkUpload = async (req, res) => {
         }
       }
 
-      let buffer = [];
+      let batch = [];
 
       for (let i = 2; i <= worksheet.rowCount; i++) {
         const row = worksheet.getRow(i);
@@ -100,53 +135,74 @@ export const bulkUpload = async (req, res) => {
           rowData[header] = getCellValue(row.getCell(idx + 1));
         });
 
-        buffer.push({ rowData, rowNumber: i });
+        // Mapeamos inmediatamente para tener el objeto limpio
+        try {
+          const item = mapExcelToProduct(rowData);
+          batch.push({ item, rowNumber: i });
+        } catch (err) {
+          skipped++;
+          errors.push({
+            sheet: worksheet.name,
+            row: i,
+            error: err.message,
+          });
+        }
 
-        if (buffer.length === CHUNK_SIZE || i === worksheet.rowCount) {
-          for (const { rowData, rowNumber } of buffer) {
-            try {
-              const item = mapExcelToProduct(rowData);
+        // Procesar Batch
+        if (batch.length === CHUNK_SIZE || i === worksheet.rowCount) {
+          if (batch.length === 0) continue;
 
-              console.log(`[BULK DEBUG] Fila ${rowNumber} - CodigoInterno: "${item.codigoInterno}"`);
-
-              
-              if (mode === "delete") {
-                if (!item.codigoInterno) {
-                  skipped++;
-                  errors.push({
-                    sheet: worksheet.name,
-                    row: rowNumber,
-                    error: "codigoInterno inválido",
-                  });
-                  continue;
-                }
-
-                console.log(`[DELETE] Buscando producto con codigoInterno: ${item.codigoInterno}`);
-
-                const existingProduct = await prisma.product.findFirst({
-                  where: { codigoInterno: item.codigoInterno },
+          /* =========================
+             MODO DELETE (Optimizado)
+          ========================= */
+          if (mode === "delete") {
+            const validDeletes = [];
+            
+            for (const { item, rowNumber } of batch) {
+              if (!item.codigoInterno) {
+                skipped++;
+                errors.push({
+                  sheet: worksheet.name,
+                  row: rowNumber,
+                  error: "codigoInterno inválido",
                 });
-
-                console.log(`[DELETE] Producto encontrado:`, existingProduct ? "SÍ" : "NO");
-
-                if (!existingProduct) {
-                  skipped++;
-                  continue;
-                }
-
-                console.log(`[DELETE] Marcando como inactivo: ${existingProduct.id}`);
-
-                await prisma.product.update({
-                  where: { id: existingProduct.id },
-                  data: { activo: false },
-                });
-
-                console.log(`[DELETE] ✅ Producto ${existingProduct.id} marcado como inactivo`);
-
-                inserted++;
-                continue;
+              } else {
+                validDeletes.push(item.codigoInterno);
               }
+            }
 
+            if (validDeletes.length > 0) {
+              const result = await prisma.product.updateMany({
+                where: { codigoInterno: { in: validDeletes } },
+                data: { activo: false },
+              });
+              inserted += result.count;
+            }
+            
+            batch = [];
+            continue;
+          }
+
+          /* =========================
+             MODO UPSERT / CREATE / UPDATE
+          ========================= */
+          
+          // 1. Sincronizar Marcas y Familias del batch
+          await syncMetadata(batch.map(b => b.item), brandCache, familyCache);
+
+          // 2. Buscar productos existentes en el batch
+          const codigos = batch.map(b => b.item.codigoInterno).filter(Boolean);
+          const existingProducts = await prisma.product.findMany({
+            where: { codigoInterno: { in: codigos } },
+          });
+          
+          const productMap = new Map();
+          existingProducts.forEach(p => productMap.set(p.codigoInterno, p));
+
+          // 3. Ejecutar operaciones en paralelo
+          const promises = batch.map(async ({ item, rowNumber }) => {
+            try {
+              // Validaciones básicas
               const validationErrors = [];
               if (!item.codigoInterno) validationErrors.push("codigoInterno vacío");
               if (!item.descripcion) validationErrors.push("descripcion vacía");
@@ -154,182 +210,87 @@ export const bulkUpload = async (req, res) => {
                 validationErrors.push("precio inválido");
 
               if (validationErrors.length) {
-                console.log(`[BULK DEBUG] Errores validación fila ${rowNumber}:`, validationErrors);
-                skipped++;
-                errors.push({
-                  sheet: worksheet.name,
-                  row: rowNumber,
-                  error: validationErrors.join(", "),
-                });
-                continue;
+                throw new Error(validationErrors.join(", "));
               }
 
-              let marca = brandCache.get(item.marcaNombre);
-              if (!marca) {
-                marca =
-                  (await prisma.brand.findFirst({
-                    where: { nombre: item.marcaNombre },
-                  })) ||
-                  (await prisma.brand.create({
-                    data: { nombre: item.marcaNombre },
-                  }));
-                brandCache.set(item.marcaNombre, marca);
-              }
+              const marca = brandCache.get(item.marcaNombre);
+              const familia = familyCache.get(item.familiaNombre);
+              const existingProduct = productMap.get(item.codigoInterno);
 
-              let familia = familyCache.get(item.familiaNombre);
-              if (!familia) {
-                familia =
-                  (await prisma.family.findFirst({
-                    where: { nombre: item.familiaNombre },
-                  })) ||
-                  (await prisma.family.create({
-                    data: { nombre: item.familiaNombre },
-                  }));
-                familyCache.set(item.familiaNombre, familia);
-              }
+              const commonData = {
+                codigoInterno: item.codigoInterno,
+                codigoOriginal: item.codigoOriginal,
+                descripcion: item.descripcion,
+                descripcionAdicional: item.descripcionAdicional,
+                precioConIva: item.precioConIva,
+                precioMayoristaSinIva: item.precioMayoristaSinIva,
+                stock: item.stock,
+                marca: marca ? { connect: { id: marca.id } } : undefined,
+                familia: familia ? { connect: { id: familia.id } } : undefined,
+                rubro: item.rubro,
+                esOferta: item.esOferta,
+                esNovedad: item.esNovedad,
+                activo: true,
+              };
 
-              const existingProduct = await prisma.product.findFirst({
-                where: { codigoInterno: item.codigoInterno },
-              });
-
-              console.log(`[BULK DEBUG] Buscando ${item.codigoInterno} -> Encontrado: ${!!existingProduct}`);
-
-           
               if (mode === "update") {
-                if (!existingProduct) {
-                  skipped++;
-                  continue;
-                }
-
+                if (!existingProduct) return { status: "skipped" };
                 await prisma.product.update({
                   where: { id: existingProduct.id },
-                  data: {
-                    codigoInterno: item.codigoInterno,
-                    codigoOriginal: item.codigoOriginal,
-                    descripcion: item.descripcion,
-                    descripcionAdicional: item.descripcionAdicional,
-                    precioConIva: item.precioConIva,
-                    precioMayoristaSinIva: item.precioMayoristaSinIva,
-                    stock: item.stock,
-                    marca: { connect: { id: marca.id } },
-                    familia: { connect: { id: familia.id } },
-                    rubro: item.rubro,
-                    esOferta: item.esOferta,
-                    esNovedad: item.esNovedad,
-                    activo: true,
-                  },
+                  data: commonData,
                 });
-
-                inserted++;
-                continue;
+                return { status: "inserted" };
               }
 
               if (mode === "create") {
                 if (existingProduct) {
-                  
                   if (!existingProduct.activo) {
-                    console.log(`[BULK DEBUG] Reactivando producto inactivo: ${item.codigoInterno}`);
                     await prisma.product.update({
                       where: { id: existingProduct.id },
-                      data: {
-                        codigoInterno: item.codigoInterno,
-                        codigoOriginal: item.codigoOriginal,
-                        descripcion: item.descripcion,
-                        descripcionAdicional: item.descripcionAdicional,
-                        precioConIva: item.precioConIva,
-                        precioMayoristaSinIva: item.precioMayoristaSinIva,
-                        stock: item.stock,
-                        marca: { connect: { id: marca.id } },
-                        familia: { connect: { id: familia.id } },
-                        rubro: item.rubro,
-                        esOferta: item.esOferta,
-                        esNovedad: item.esNovedad,
-                        activo: true,
-                      },
+                      data: commonData,
                     });
-                    inserted++;
-                    continue;
+                    return { status: "inserted" };
                   }
-
-                  console.log(`[BULK DEBUG] SKIP CREATE (Ya existe): ${item.codigoInterno}`);
-                  skipped++;
-                  continue;
+                  return { status: "skipped" }; // Ya existe y está activo
                 }
-
-                await prisma.product.create({
-                  data: {
-                    codigoInterno: item.codigoInterno,
-                    codigoOriginal: item.codigoOriginal,
-                    descripcion: item.descripcion,
-                    descripcionAdicional: item.descripcionAdicional,
-                    precioConIva: item.precioConIva,
-                    precioMayoristaSinIva: item.precioMayoristaSinIva,
-                    stock: item.stock,
-                    marca: { connect: { id: marca.id } },
-                    familia: { connect: { id: familia.id } },
-                    rubro: item.rubro,
-                    esOferta: item.esOferta,
-                    esNovedad: item.esNovedad,
-                    activo: true,
-                  },
-                });
-
-                inserted++;
-                continue;
+                await prisma.product.create({ data: commonData });
+                return { status: "inserted" };
               }
 
-             
+              // Mode UPSERT (Default)
               if (existingProduct) {
                 await prisma.product.update({
                   where: { id: existingProduct.id },
-                  data: {
-                    codigoInterno: item.codigoInterno,
-                    codigoOriginal: item.codigoOriginal,
-                    descripcion: item.descripcion,
-                    descripcionAdicional: item.descripcionAdicional,
-                    precioConIva: item.precioConIva,
-                    precioMayoristaSinIva: item.precioMayoristaSinIva,
-                    stock: item.stock,
-                    marca: { connect: { id: marca.id } },
-                    familia: { connect: { id: familia.id } },
-                    rubro: item.rubro,
-                    esOferta: item.esOferta,
-                    esNovedad: item.esNovedad,
-                    activo: true,
-                  },
+                  data: commonData,
                 });
               } else {
-                await prisma.product.create({
-                  data: {
-                    codigoInterno: item.codigoInterno,
-                    codigoOriginal: item.codigoOriginal,
-                    descripcion: item.descripcion,
-                    descripcionAdicional: item.descripcionAdicional,
-                    precioConIva: item.precioConIva,
-                    precioMayoristaSinIva: item.precioMayoristaSinIva,
-                    stock: item.stock,
-                    marca: { connect: { id: marca.id } },
-                    familia: { connect: { id: familia.id } },
-                    rubro: item.rubro,
-                    esOferta: item.esOferta,
-                    esNovedad: item.esNovedad,
-                    activo: true,
-                  },
-                });
+                await prisma.product.create({ data: commonData });
               }
+              return { status: "inserted" };
 
-              inserted++;
             } catch (err) {
-              skipped++;
-              errors.push({
+              return {
+                status: "error",
                 sheet: worksheet.name,
                 row: rowNumber,
                 error: err.message,
-              });
+              };
             }
-          }
+          });
 
-          buffer = [];
+          const results = await Promise.all(promises);
+          
+          // Agregar resultados a contadores
+          results.forEach(r => {
+            if (r.status === "inserted") inserted++;
+            else if (r.status === "skipped") skipped++;
+            else if (r.status === "error") {
+              skipped++;
+              errors.push({ sheet: r.sheet, row: r.row, error: r.error });
+            }
+          });
+
+          batch = [];
         }
       }
     }

@@ -104,40 +104,51 @@ model ProductImage {
 model Product {
   id String @id @default(uuid())
 
-  codigoInterno             String  @unique
-  codigoOriginal            String?
+  codigoInterno String @unique
+  codigoOriginal String?
   codigoOriginalNormalizado String?
 
-  descripcion          String
+  descripcion String
   descripcionAdicional String?
 
-  precioConIva          Float
+  precioConIva Float
   precioMayoristaSinIva Float?
 
   stock Int @default(0)
 
-  marcaId   String
+  marcaId String
   familiaId String
 
-  marca   Brand  @relation(fields: [marcaId], references: [id])
+  marca Brand @relation(fields: [marcaId], references: [id])
   familia Family @relation(fields: [familiaId], references: [id])
 
-  rubro  String?
+  rubro String?
   activo Boolean @default(true)
 
-  esOferta  Boolean @default(false)
+  esOferta Boolean @default(false)
   esNovedad Boolean @default(false)
 
   images ProductImage[] @relation("ProductImagesByCodigoInterno")
 
-  favorites  Favorite[]
+  favorites Favorite[]
   orderItems OrderItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([codigoOriginalNormalizado])
+  
+  @@index([codigoInterno])
+  @@index([descripcion])
+  @@index([marcaId])
+  @@index([familiaId])
+  @@index([rubro])
+  @@index([activo])
+  @@index([precioConIva])
+
+  @@index([marcaId, familiaId])
+  @@index([activo, precioConIva])
 }
+
 
 model Favorite {
   id        String @id @default(uuid())
