@@ -26,7 +26,6 @@ export default function AdminDashboard() {
           return;
         }
 
-        // Obtener productos
         const productsRes = await fetch(`${apiUrl}/products?limit=1`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -35,26 +34,24 @@ export default function AdminDashboard() {
         const productsData = await productsRes.json();
         const totalProductos = productsData.pagination?.total || 0;
 
-        // Obtener pedidos
-        const ordersRes = await fetch(`${apiUrl}/orders?limit=10`, {
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        const ordersParams = new URLSearchParams({
+          startDate: startOfMonth.toISOString(),
+          limit: 1000,
+        });
+
+        const ordersRes = await fetch(`${apiUrl}/orders?${ordersParams.toString()}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
         const ordersData = await ordersRes.json();
         const orders = ordersData.data || [];
-        
-        // Calcular pedidos del mes
-        const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const pedidosMes = orders.filter(
-          (order) => new Date(order.createdAt) >= startOfMonth
-        ).length;
 
-        // Calcular ventas del mes
-        const ventasMes = orders
-          .filter((order) => new Date(order.createdAt) >= startOfMonth)
-          .reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+        const pedidosMes = orders.length;
+        const ventasMes = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
 
         // Obtener usuarios
         const usersRes = await fetch(`${apiUrl}/users`, {
@@ -73,7 +70,6 @@ export default function AdminDashboard() {
           ventasMes,
         });
 
-        // Ordenar pedidos recientes
         setRecentOrders(orders.slice(0, 4));
       } catch (err) {
         console.error("Error cargando datos del dashboard:", err);

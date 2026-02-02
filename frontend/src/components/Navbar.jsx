@@ -44,11 +44,12 @@ export function Navbar() {
           href="/"
           className="text-3xl font-bold bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent hover:from-red-700 hover:to-red-900 transition-all"
         >
-          Fiorenza
+          Fiorenza 
+          Repuestos
         </Link>
 
         <div className="flex items-center gap-8">
-          
+
 
           {(user?.rol === "mayorista" || user?.rol === "MAYORISTA") && (
             <Link
@@ -71,10 +72,10 @@ export function Navbar() {
 
           {/* CARRITO */}
           {user && user.rol !== "admin" && user.rol !== "ADMIN" && (
-  <Link
-    href="/dashboard/carrito"
-    className="relative p-2 text-gray-700 hover:text-red-600 transition-colors hover:bg-gray-100 rounded-lg"
-  >
+            <Link
+              href="/dashboard/carrito"
+              className="relative p-2 text-gray-700 hover:text-red-600 transition-colors hover:bg-gray-100 rounded-lg"
+            >
               <ShoppingCart className="w-6 h-6" />
 
               {mounted && cartCount > 0 && (

@@ -29,7 +29,6 @@ const mapExcelToProduct = (row) => ({
   descripcion: sanitizeText(row["DESCRIPCION"]),
   descripcionAdicional: sanitizeText(row["DESCRIPCION ADICIONAL"]),
   stock: Number(row["STOCK"]) || 0,
-  precioConIva: Number(row["PRECIO PUBLICO FINAL CON IVA"]),
   precioConIva: Number(row["PRECIO PUBLICO FINAL CON IVA"]) || 0,
   precioMayoristaSinIva: Number(row["PRECIO MAYORISTA SIN IVA"]) || null,
   marcaNombre: sanitizeText(row["MARCA"]),
@@ -85,7 +84,7 @@ export const bulkUpload = async (req, res) => {
       return res.status(400).json({ error: "Archivo requerido" });
     }
 
-    const { mode = "upsert" } = req.body; 
+    const { mode = "upsert" } = req.body;
     console.log(`[BULK UPLOAD] Iniciando modo: ${mode}`);
     console.log(`[BULK UPLOAD] Body recibido:`, req.body);
 
@@ -116,7 +115,7 @@ export const bulkUpload = async (req, res) => {
           });
         }
       } else {
-    
+
         if (!headers.includes("CODIGO INTERNO")) {
           return res.status(400).json({
             error: `Columna CODIGO INTERNO faltante en hoja ${worksheet.name}`,
@@ -144,7 +143,7 @@ export const bulkUpload = async (req, res) => {
           errors.push({
             sheet: worksheet.name,
             row: i,
-            error: err.message,
+            error: err.message.split("|"),
           });
         }
 
@@ -152,19 +151,16 @@ export const bulkUpload = async (req, res) => {
         if (batch.length === CHUNK_SIZE || i === worksheet.rowCount) {
           if (batch.length === 0) continue;
 
-          /* =========================
-             MODO DELETE (Optimizado)
-          ========================= */
           if (mode === "delete") {
             const validDeletes = [];
-            
+
             for (const { item, rowNumber } of batch) {
               if (!item.codigoInterno) {
                 skipped++;
                 errors.push({
                   sheet: worksheet.name,
                   row: rowNumber,
-                  error: "codigoInterno inválido",
+                  error: "MISSING_CODE",
                 });
               } else {
                 validDeletes.push(item.codigoInterno);
@@ -178,39 +174,30 @@ export const bulkUpload = async (req, res) => {
               });
               inserted += result.count;
             }
-            
+
             batch = [];
             continue;
           }
-
-          /* =========================
-             MODO UPSERT / CREATE / UPDATE
-          ========================= */
-          
-          // 1. Sincronizar Marcas y Familias del batch
           await syncMetadata(batch.map(b => b.item), brandCache, familyCache);
 
-          // 2. Buscar productos existentes en el batch
           const codigos = batch.map(b => b.item.codigoInterno).filter(Boolean);
           const existingProducts = await prisma.product.findMany({
             where: { codigoInterno: { in: codigos } },
           });
-          
+
           const productMap = new Map();
           existingProducts.forEach(p => productMap.set(p.codigoInterno, p));
 
-          // 3. Ejecutar operaciones en paralelo
           const promises = batch.map(async ({ item, rowNumber }) => {
             try {
-              // Validaciones básicas
               const validationErrors = [];
-              if (!item.codigoInterno) validationErrors.push("codigoInterno vacío");
-              if (!item.descripcion) validationErrors.push("descripcion vacía");
+              if (!item.codigoInterno) validationErrors.push("MISSING_CODE");
+
               if (isNaN(item.precioConIva) || item.precioConIva <= 0)
-                validationErrors.push("precio inválido");
+                validationErrors.push("INVALID_PRICE");
 
               if (validationErrors.length) {
-                throw new Error(validationErrors.join(", "));
+                throw new Error(validationErrors.join("|"));
               }
 
               const marca = brandCache.get(item.marcaNombre);
@@ -225,8 +212,8 @@ export const bulkUpload = async (req, res) => {
                 precioConIva: item.precioConIva,
                 precioMayoristaSinIva: item.precioMayoristaSinIva,
                 stock: item.stock,
-                marca: marca ? { connect: { id: marca.id } } : undefined,
-                familia: familia ? { connect: { id: familia.id } } : undefined,
+                marcaId: marca ? marca.id : null,
+                familiaId: familia ? familia.id : null,
                 rubro: item.rubro,
                 esOferta: item.esOferta,
                 esNovedad: item.esNovedad,
@@ -251,7 +238,7 @@ export const bulkUpload = async (req, res) => {
                     });
                     return { status: "inserted" };
                   }
-                  return { status: "skipped" }; // Ya existe y está activo
+                  return { status: "skipped" };
                 }
                 await prisma.product.create({ data: commonData });
                 return { status: "inserted" };
@@ -273,13 +260,13 @@ export const bulkUpload = async (req, res) => {
                 status: "error",
                 sheet: worksheet.name,
                 row: rowNumber,
-                error: err.message,
+                error: err.message.split("|"),
               };
             }
           });
 
           const results = await Promise.all(promises);
-          
+
           // Agregar resultados a contadores
           results.forEach(r => {
             if (r.status === "inserted") inserted++;

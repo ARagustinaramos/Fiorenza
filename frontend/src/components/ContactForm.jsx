@@ -2,12 +2,14 @@
 
 import { useRef, useState, useEffect } from "react";
 import emailjs from "@emailjs/browser";
+import ReCAPTCHA from "react-google-recaptcha";
 
 export default function ContactForm() {
   const formRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState(null);
+  const [captchaValido, setCaptchaValido] = useState(null);
 
   useEffect(() => {
     const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
@@ -35,6 +37,11 @@ export default function ContactForm() {
         serviceId: !!serviceId,
         templateId: !!templateId,
       });
+      return;
+    }
+
+    if (!captchaValido) {
+      setError("Por favor completa el captcha para verificar que no sos un robot.");
       return;
     }
 
@@ -162,6 +169,13 @@ export default function ContactForm() {
             <p className="text-xs text-red-600 mt-1">{error}</p>
           </div>
         )}
+
+        <div className="sm:col-span-2 flex justify-center sm:justify-start">
+          <ReCAPTCHA
+            sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"}
+            onChange={setCaptchaValido}
+          />
+        </div>
 
         <div className="sm:col-span-2 pt-4">
           <button

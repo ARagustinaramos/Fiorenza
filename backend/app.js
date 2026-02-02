@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import authRoutes from "./src/routes/auth.routes.js";
 import usersRoutes from "./src/routes/users.js";
 import productsRoutes from "./src/routes/products.js";
@@ -16,6 +18,19 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, 
+  max: 100, 
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Demasiadas peticiones desde esta IP, por favor intenta más tarde." }
+});
+app.use(limiter);
 
 app.use(cors());
 app.use(express.json());

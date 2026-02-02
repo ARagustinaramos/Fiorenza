@@ -11,6 +11,8 @@ export default function AdminClientes() {
   const [selectedCliente, setSelectedCliente] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [togglingStatus, setTogglingStatus] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
   const searchParams = useSearchParams();
   const refresh = searchParams.get("refresh");
 
@@ -54,6 +56,7 @@ export default function AdminClientes() {
   const fetchClienteDetail = async (clienteId) => {
     try {
       setDetailLoading(true);
+      setNewPassword("");
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
       const token = localStorage.getItem("token");
 
@@ -109,13 +112,49 @@ export default function AdminClientes() {
         )
       );
 
-      // Recargar clientes para sincronizar
       setTimeout(() => fetchClientes(), 500);
     } catch (err) {
       console.error("Error:", err);
       alert(`Error: ${err.message}`);
     } finally {
       setTogglingStatus(false);
+    }
+  };
+
+  const handleUpdatePassword = async () => {
+    if (!selectedCliente || !newPassword) return;
+
+    if (newPassword.length < 6) {
+      alert("La contraseña debe tener al menos 6 caracteres");
+      return;
+    }
+
+    try {
+      setPasswordLoading(true);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+      const token = localStorage.getItem("token");
+
+      const res = await fetch(`${apiUrl}/users/${selectedCliente.id}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ password: newPassword }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Error al actualizar contraseña");
+      }
+
+      alert("Contraseña actualizada correctamente");
+      setNewPassword("");
+    } catch (err) {
+      console.error("Error:", err);
+      alert(`Error: ${err.message}`);
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -242,10 +281,9 @@ export default function AdminClientes() {
         {/* Modal de detalle del cliente */}
         {selectedCliente && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              {/* Header */}
-              <div className="sticky top-0 bg-gradient-to-r from-red-600 to-red-800 text-white p-6 flex justify-between items-center">
-                <h2 className="text-2xl font-bold">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-xl max-h-[85vh] overflow-y-auto">
+              <div className="sticky top-0 bg-gradient-to-r from-red-600 to-red-700 text-white px-5 py-3 flex justify-between items-center">
+                <h2 className="text-lg font-semibold">
                   {selectedCliente.perfil?.nombreCompleto || selectedCliente.email}
                 </h2>
                 <button
@@ -256,9 +294,8 @@ export default function AdminClientes() {
                 </button>
               </div>
 
-              {/* Contenido */}
               <div className="p-6 space-y-6">
-                {/* Información Personal */}
+            
                 <div>
                   <h3 className="text-lg font-bold mb-4 text-gray-900">Información Personal</h3>
                   <div className="grid grid-cols-2 gap-4">
@@ -296,8 +333,6 @@ export default function AdminClientes() {
                     </div>
                   </div>
                 </div>
-
-                {/* Información Empresarial */}
                 <div className="border-t pt-6">
                   <h3 className="text-lg font-bold mb-4 text-gray-900">Información Empresarial</h3>
                   <div className="grid grid-cols-2 gap-4">
@@ -327,8 +362,6 @@ export default function AdminClientes() {
                     </div>
                   </div>
                 </div>
-
-                {/* Estado del Cliente */}
                 <div className="border-t pt-6">
                   <h3 className="text-lg font-bold mb-4 text-gray-900">Estado del Cliente</h3>
                   <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
@@ -347,15 +380,15 @@ export default function AdminClientes() {
                     <button
                       onClick={handleToggleStatus}
                       disabled={togglingStatus}
-                      className={`relative inline-flex h-10 w-16 items-center rounded-full transition ${
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
                         selectedCliente.activo
                           ? "bg-green-500"
                           : "bg-red-500"
                       } ${togglingStatus ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:opacity-90"}`}
                     >
                       <span
-                        className={`inline-block h-8 w-8 transform rounded-full bg-white transition ${
-                          selectedCliente.activo ? "translate-x-7" : "translate-x-1"
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
+                          selectedCliente.activo ? "translate-x-5" : "translate-x-1"
                         }`}
                       />
                     </button>
@@ -368,9 +401,29 @@ export default function AdminClientes() {
                       : "El cliente no puede acceder a la plataforma"}
                   </p>
                 </div>
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-bold mb-4 text-gray-900">Seguridad</h3>
+                  <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+                    <p className="text-sm text-gray-600 mb-3">Cambiar contraseña del usuario</p>
+                    <div className="flex gap-3">
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Nueva contraseña"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                      />
+                      <button
+                        onClick={handleUpdatePassword}
+                        disabled={passwordLoading || !newPassword}
+                        className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {passwordLoading ? "Actualizando..." : "Actualizar"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
-
-              {/* Footer */}
               <div className="border-t p-6 flex justify-end gap-3">
                 <button
                   onClick={() => setSelectedCliente(null)}

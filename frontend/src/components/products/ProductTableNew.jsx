@@ -401,7 +401,7 @@ export function ProductTableNew() {
         </div>
       )}
 
-      <div className="space-y-6 w-full max-w-5xl">
+      <div className="space-y-6 w-full max-w-7xl">
         <div className="space-y-4">
           <div className="flex gap-3 items-center">
             <div className="relative flex-1 max-w-2xl">

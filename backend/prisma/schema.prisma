@@ -108,7 +108,7 @@ model Product {
   codigoOriginal String?
   codigoOriginalNormalizado String?
 
-  descripcion String
+  descripcion String?
   descripcionAdicional String?
 
   precioConIva Float
@@ -116,11 +116,11 @@ model Product {
 
   stock Int @default(0)
 
-  marcaId String
-  familiaId String
+  marcaId String?
+  familiaId String?
 
-  marca Brand @relation(fields: [marcaId], references: [id])
-  familia Family @relation(fields: [familiaId], references: [id])
+  marca Brand? @relation(fields: [marcaId], references: [id])
+  familia Family? @relation(fields: [familiaId], references: [id])
 
   rubro String?
   activo Boolean @default(true)
@@ -136,7 +136,6 @@ model Product {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  
   @@index([codigoInterno])
   @@index([descripcion])
   @@index([marcaId])
@@ -148,6 +147,7 @@ model Product {
   @@index([marcaId, familiaId])
   @@index([activo, precioConIva])
 }
+
 
 
 model Favorite {

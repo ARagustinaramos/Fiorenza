@@ -192,7 +192,7 @@ export const getUserById = async (req, res) => {
 export const updateUserById = async (req, res) => {
   try {
     const { id } = req.params;
-    const { activo, coeficiente, nombreCompleto, telefono, cuitCuil, empresa, cargo } = req.body;
+    const { activo, coeficiente, nombreCompleto, telefono, cuitCuil, empresa, cargo, password } = req.body;
 
     // Validar que el usuario existe
     const user = await prisma.user.findUnique({
@@ -211,6 +211,13 @@ export const updateUserById = async (req, res) => {
 
     if (coeficiente !== undefined) {
       updateData.coeficiente = Number(coeficiente);
+    }
+
+    if (password) {
+      if (password.length < 6) {
+        return res.status(400).json({ error: "PASSWORD_TOO_SHORT" });
+      }
+      updateData.password = await bcrypt.hash(password, 10);
     }
 
     // Si hay datos de perfil, actualizar también
@@ -276,6 +283,10 @@ export const createUser = async (req, res) => {
 
   if (!email || !password) {
     return res.status(400).json({ error: "EMAIL_AND_PASSWORD_REQUIRED" });
+  }
+
+  if (password.length < 6) {
+    return res.status(400).json({ error: "PASSWORD_TOO_SHORT" });
   }
 
   const exists = await prisma.user.findUnique({ where: { email } });

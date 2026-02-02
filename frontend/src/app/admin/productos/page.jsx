@@ -32,6 +32,14 @@ export default function AdminProductos() {
   const [uploadingImages, setUploadingImages] = useState(false);
   const [uploadResult, setUploadResult] = useState(null);
 
+  const friendlyErrors = {
+  "MISSING_CODE": "Falta el código interno del producto",
+  "descripcion vacía": "Falta la descripción del producto",
+  "precio inválido": "El precio está vacío o es incorrecto",
+  "Archivo requerido": "No se seleccionó ningún archivo",
+  "Columnas faltantes": "El archivo no tiene todas las columnas necesarias",
+};
+
   useEffect(() => {
     setLoading(false);
   }, []);
@@ -102,7 +110,7 @@ export default function AdminProductos() {
       document.getElementById(`csv-${mode}`).value = "";
     } catch (err) {
       console.error("Error subiendo archivo:", err);
-      setError(err.message);
+      setError("Ocurrió un problema al procesar el archivo. Revisá que esté bien armado.");
     } finally {
       setUploadingExcel(false);
     }
@@ -145,8 +153,8 @@ export default function AdminProductos() {
         try {
           const errorData = await res.json();
           errorMessage = errorData.error || errorMessage;
-        } catch {
-          // respuesta no es JSON
+        } catch {   
+          
         }
 
         throw new Error(errorMessage);
@@ -171,7 +179,7 @@ export default function AdminProductos() {
       setUploadingImages(false);
     }
   };
-
+  
   if (loading) {
     return (
       <div className="flex min-h-screen bg-gray-50">
@@ -196,6 +204,28 @@ export default function AdminProductos() {
       </div>
     )
   }
+
+  const formatErrorMessage = (rawError) => {
+  if (!rawError) return "Error desconocido";
+
+  if (Array.isArray(rawError)) {
+    return rawError
+      .map(e => friendlyErrors[e] || e)
+      .join(" y ");
+  }
+
+  if (typeof rawError === "string") {
+    return rawError
+      .split("|")   
+      .map(e => {
+        const clean = e.trim();
+        return friendlyErrors[clean] || clean;
+      })
+      .join(" y ");
+  }
+
+  return "Error desconocido";
+};
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -229,8 +259,9 @@ export default function AdminProductos() {
                 <ul className="list-disc list-inside space-y-1">
                   {uploadResult.details.errors?.slice(0, 10).map((err, idx) => (
                     <li key={idx} className="text-xs">
-                      <span className="font-medium">Fila {err.row}:</span> {err.error}
-                    </li>
+  <span className="font-medium">Fila {err.row}:</span>{" "}
+  {formatErrorMessage(err.error)}
+</li>
                   ))}
                   {uploadResult.details.errorsCount > 10 && (
                     <li className="text-xs font-medium">... y {uploadResult.details.errorsCount - 10} errores más</li>
@@ -244,7 +275,7 @@ export default function AdminProductos() {
         {/* Importar Excel/CSV */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
           <h2 className="text-lg font-semibold mb-4">
-            Importar productos desde Excel/CSV
+            Actualizar productos existentes
           </h2>
           <p className="text-sm text-gray-600 mb-4">
             Formatos aceptados: .xlsx, .xls, .csv
