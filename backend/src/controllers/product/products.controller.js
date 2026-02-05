@@ -1,5 +1,37 @@
 import prisma from "../../config/prisma.js";
+import { Prisma } from "@prisma/client";
 import { validateProductInput } from "../../validators/product.validator.js";
+
+const parseNumber = (value) => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+
+  let text = value.toString().trim();
+  if (!text) return null;
+
+  // Remove currency symbols and spaces
+  text = text.replace(/\s+/g, "");
+  text = text.replace(/[^0-9,.-]/g, "");
+
+  const lastComma = text.lastIndexOf(",");
+  const lastDot = text.lastIndexOf(".");
+
+  if (lastComma !== -1 && lastDot !== -1) {
+    if (lastComma > lastDot) {
+      // 1.234,56 -> 1234.56
+      text = text.replace(/\./g, "").replace(",", ".");
+    } else {
+      // 1,234.56 -> 1234.56
+      text = text.replace(/,/g, "");
+    }
+  } else if (lastComma !== -1) {
+    // 1234,56 -> 1234.56
+    text = text.replace(",", ".");
+  }
+
+  const parsed = parseFloat(text);
+  return Number.isFinite(parsed) ? parsed : null;
+};
 
 const escapeLike = (value) => {
   if (!value) return "";
@@ -47,11 +79,11 @@ export const createProduct = async (req, res) => {
         where: { id: existingProduct.id },
         data: {
           ...req.body,
-          precioConIva: Number(req.body.precioConIva),
-          precioMayoristaSinIva: req.body.precioMayoristaSinIva
-            ? Number(req.body.precioMayoristaSinIva)
+          precioConIva: parseNumber(req.body.precioConIva),
+          precioMayoristaSinIva: req.body.precioMayoristaSinIva !== undefined && req.body.precioMayoristaSinIva !== ""
+            ? parseNumber(req.body.precioMayoristaSinIva)
             : null,
-          stock: Number(req.body.stock) || 0,
+          stock: parseNumber(req.body.stock) || 0,
           activo: true,
         },
       });
@@ -62,11 +94,11 @@ export const createProduct = async (req, res) => {
     const product = await prisma.product.create({
       data: {
         ...req.body,
-        precioConIva: Number(req.body.precioConIva),
-        precioMayoristaSinIva: req.body.precioMayoristaSinIva
-          ? Number(req.body.precioMayoristaSinIva)
+        precioConIva: parseNumber(req.body.precioConIva),
+        precioMayoristaSinIva: req.body.precioMayoristaSinIva !== undefined && req.body.precioMayoristaSinIva !== ""
+          ? parseNumber(req.body.precioMayoristaSinIva)
           : null,
-        stock: Number(req.body.stock) || 0,
+        stock: parseNumber(req.body.stock) || 0,
       },
     });
 
@@ -86,12 +118,37 @@ export const getProducts = async (req, res) => {
       rubro,
       oferta,
       novedad,
+      favorites,
       page = 1,
       limit = 20,
     } = req.query;
 
-    const offset = (Number(page) - 1) * Number(limit);
-    const filters = [`p.activo = true`];
+    const limitNum = Number(limit);
+    const offset = (Number(page) - 1) * limitNum;
+    const filters = [Prisma.sql`p.activo = true`];
+    const joins = [
+      Prisma.sql`JOIN "Brand" m ON m.id = p."marcaId"`,
+      Prisma.sql`JOIN "Family" f ON f.id = p."familiaId"`,
+    ];
+
+    const includeFavorites = favorites === "true";
+    if (includeFavorites) {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "UNAUTHORIZED" });
+      }
+      joins.push(
+        Prisma.sql`JOIN "Favorite" fav ON fav."productId" = p.id AND fav."userId" = ${userId}`
+      );
+    }
+
+    const joinWith = (items, operator) => {
+      if (!items.length) return Prisma.sql``;
+      return items.slice(1).reduce(
+        (acc, item) => Prisma.sql`${acc} ${Prisma.raw(operator)} ${item}`,
+        items[0]
+      );
+    };
 
     const safeMarca = escapeLike(marca);
     const safeFamilia = escapeLike(familia);
@@ -99,10 +156,9 @@ export const getProducts = async (req, res) => {
 
 
     if (marca) {
-      filters.push(`
-        immutable_unaccent(UPPER(m.nombre))
-        ILIKE '%' || immutable_unaccent(UPPER('${safeMarca}')) || '%'
-      `);
+      filters.push(
+        Prisma.sql`immutable_unaccent(UPPER(m.nombre)) ILIKE '%' || immutable_unaccent(UPPER(${safeMarca})) || '%'`
+      );
     }
 
     if (familia) {
@@ -112,37 +168,32 @@ export const getProducts = async (req, res) => {
         .filter(Boolean);
 
       if (familias.length === 1) {
-        filters.push(`
-      immutable_unaccent(UPPER(f.nombre))
-      ILIKE '%' || immutable_unaccent(UPPER('${familias[0]}')) || '%'
-    `);
-      } else {
-        const condiciones = familias
-          .map(
-            (f) => `
-        immutable_unaccent(UPPER(f.nombre))
-        ILIKE '%' || immutable_unaccent(UPPER('${f}')) || '%'
-      `
-          )
-          .join(" OR ");
+        filters.push(
+          Prisma.sql`immutable_unaccent(UPPER(f.nombre)) ILIKE '%' || immutable_unaccent(UPPER(${familias[0]})) || '%'`
+        );
+      } else if (familias.length > 1) {
+        const condiciones = familias.map(
+          (f) =>
+            Prisma.sql`immutable_unaccent(UPPER(f.nombre)) ILIKE '%' || immutable_unaccent(UPPER(${f})) || '%'`
+        );
 
-        filters.push(`(${condiciones})`);
+        const orBlock = joinWith(condiciones, "OR");
+        filters.push(Prisma.sql`(${orBlock})`);
       }
     }
 
     if (rubro) {
-      filters.push(`
-        immutable_unaccent(UPPER(p.rubro))
-        ILIKE '%' || immutable_unaccent(UPPER('${safeRubro}')) || '%'
-      `);
+      filters.push(
+        Prisma.sql`immutable_unaccent(UPPER(p.rubro)) ILIKE '%' || immutable_unaccent(UPPER(${safeRubro})) || '%'`
+      );
     }
 
-    if (oferta === "true") {
-      filters.push(`p."esOferta" = true`);
-    }
-
-    if (novedad === "true") {
-      filters.push(`p."esNovedad" = true`);
+    if (oferta === "true" && novedad === "true") {
+      filters.push(Prisma.sql`(p."esOferta" = true OR p."esNovedad" = true)`);
+    } else if (oferta === "true") {
+      filters.push(Prisma.sql`p."esOferta" = true`);
+    } else if (novedad === "true") {
+      filters.push(Prisma.sql`p."esNovedad" = true`);
     }
     const words = q
       .split(" ")
@@ -150,46 +201,45 @@ export const getProducts = async (req, res) => {
       .filter(Boolean);
 
     if (q && words.length) {
-      const conditions = words.map(word => {
+      const conditions = words.map((word) => {
         const safeWord = escapeLike(word);
 
-        return `
-      (
-        immutable_unaccent(LOWER(p.descripcion)) ILIKE '%' || LOWER('${safeWord}') || '%'
-        OR immutable_unaccent(LOWER(p."descripcionAdicional")) ILIKE '%' || LOWER('${safeWord}') || '%'
-        OR LOWER(p."codigoInterno") ILIKE '%' || LOWER('${safeWord}') || '%'
-        OR CAST(p."codigoOriginal" AS TEXT) ILIKE '%' || '${safeWord}' || '%'
-      )
-    `;
+        return Prisma.sql`(
+          immutable_unaccent(LOWER(p.descripcion)) ILIKE '%' || LOWER(${safeWord}) || '%'
+          OR immutable_unaccent(LOWER(p."descripcionAdicional")) ILIKE '%' || LOWER(${safeWord}) || '%'
+          OR LOWER(p."codigoInterno") ILIKE '%' || LOWER(${safeWord}) || '%'
+          OR CAST(p."codigoOriginal" AS TEXT) ILIKE '%' || ${safeWord} || '%'
+        )`;
       });
 
-      filters.push(conditions.join(" AND "));
+      const andBlock = joinWith(conditions, "AND");
+      filters.push(Prisma.sql`(${andBlock})`);
     }
 
-    const whereSQL = `WHERE ${filters.join(" AND ")}`;
+    const whereSQL = Prisma.sql`WHERE ${joinWith(filters, "AND")}`;
 
     // Ejecutamos las consultas en paralelo para ganar velocidad
     const [products, totalResult] = await Promise.all([
-      prisma.$queryRawUnsafe(`
+      prisma.$queryRaw`
         SELECT
           p.*,
           m.nombre AS marca,
           f.nombre AS familia
         FROM "Product" p
-        JOIN "Brand" m ON m.id = p."marcaId"
-        JOIN "Family" f ON f.id = p."familiaId"
+        ${joinWith(joins, " ")}
         ${whereSQL}
-        ORDER BY p.descripcion
-        LIMIT ${Number(limit)}
+        ORDER BY
+          (p.descripcion IS NULL OR p.descripcion = '') ASC,
+          p.descripcion ASC
+        LIMIT ${limitNum}
         OFFSET ${offset}
-      `),
-      prisma.$queryRawUnsafe(`
+      `,
+      prisma.$queryRaw`
         SELECT COUNT(DISTINCT p.id)::int AS count
         FROM "Product" p
-        JOIN "Brand" m ON m.id = p."marcaId"
-        JOIN "Family" f ON f.id = p."familiaId"
+        ${joinWith(joins, " ")}
         ${whereSQL}
-      `),
+      `,
     ]);
 
     // Obtenemos las imágenes solo para los productos de esta página (mucho más rápido que JOIN masivo)
@@ -274,15 +324,15 @@ export const updateProduct = async (req, res) => {
       where: { id: req.params.id },
       data: {
         ...req.body,
-        precioConIva: req.body.precioConIva
-          ? Number(req.body.precioConIva)
+        precioConIva: req.body.precioConIva !== undefined
+          ? parseNumber(req.body.precioConIva)
           : undefined,
-        precioMayoristaSinIva: req.body.precioMayoristaSinIva
-          ? Number(req.body.precioMayoristaSinIva)
+        precioMayoristaSinIva: req.body.precioMayoristaSinIva !== undefined
+          ? (req.body.precioMayoristaSinIva === "" ? null : parseNumber(req.body.precioMayoristaSinIva))
           : undefined,
         stock:
           req.body.stock !== undefined
-            ? Number(req.body.stock)
+            ? parseNumber(req.body.stock)
             : undefined,
       },
     });
@@ -312,7 +362,7 @@ export const getOfferProducts = async (req, res) => {
     const { page = 1, limit = 20 } = req.query;
     const offset = (page - 1) * limit;
 
-    const products = await prisma.$queryRawUnsafe(`
+    const products = await prisma.$queryRaw`
       SELECT
         p.*,
         m.nombre AS marca,
@@ -325,7 +375,7 @@ export const getOfferProducts = async (req, res) => {
       ORDER BY p."updatedAt" DESC
       LIMIT ${Number(limit)}
       OFFSET ${offset}
-    `);
+    `;
 
     res.json(products);
   } catch (error) {
@@ -339,7 +389,7 @@ export const getNewProducts = async (req, res) => {
     const { page = 1, limit = 20 } = req.query;
     const offset = (page - 1) * limit;
 
-    const products = await prisma.$queryRawUnsafe(`
+    const products = await prisma.$queryRaw`
       SELECT
         p.*,
         m.nombre AS marca,
@@ -352,7 +402,7 @@ export const getNewProducts = async (req, res) => {
       ORDER BY p."createdAt" DESC
       LIMIT ${Number(limit)}
       OFFSET ${offset}
-    `);
+    `;
 
     res.json(products);
   } catch (error) {
@@ -363,7 +413,7 @@ export const getNewProducts = async (req, res) => {
 
 export const getFeaturedProducts = async (req, res) => {
   try {
-    const products = await prisma.$queryRawUnsafe(`
+    const products = await prisma.$queryRaw`
       SELECT
         p.*,
         m.nombre AS marca,
@@ -375,7 +425,7 @@ export const getFeaturedProducts = async (req, res) => {
         AND (p."esOferta" = true OR p."esNovedad" = true)
       ORDER BY p."updatedAt" DESC
       LIMIT 20
-    `);
+    `;
 
     res.json(products);
   } catch (error) {

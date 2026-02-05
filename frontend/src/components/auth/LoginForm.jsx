@@ -34,7 +34,7 @@ export function LoginForm({ onSuccess }) {
       }
     } catch (err) {
       setError("Email o contraseña incorrectos");
-      Console.log()
+      console.log(err);
     } finally {
       setLoading(false);
     }

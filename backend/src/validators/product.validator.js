@@ -1,6 +1,37 @@
 const isEmpty = (value) =>
   value === undefined || value === null || value === "";
 
+const parseNumber = (value) => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+
+  let text = value.toString().trim();
+  if (!text) return null;
+
+  // Remove currency symbols and spaces
+  text = text.replace(/\s+/g, "");
+  text = text.replace(/[^0-9,.-]/g, "");
+
+  const lastComma = text.lastIndexOf(",");
+  const lastDot = text.lastIndexOf(".");
+
+  if (lastComma !== -1 && lastDot !== -1) {
+    if (lastComma > lastDot) {
+      // 1.234,56 -> 1234.56
+      text = text.replace(/\./g, "").replace(",", ".");
+    } else {
+      // 1,234.56 -> 1234.56
+      text = text.replace(/,/g, "");
+    }
+  } else if (lastComma !== -1) {
+    // 1234,56 -> 1234.56
+    text = text.replace(",", ".");
+  }
+
+  const parsed = parseFloat(text);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 export const validateProductInput = (data, isUpdate = false) => {
   const errors = [];
 
@@ -21,36 +52,36 @@ export const validateProductInput = (data, isUpdate = false) => {
     }
   }
 
-  // Descripción
+  // DescripciÃ³n
   if (!isEmpty(data.descripcion) && data.descripcion.length > 100) {
     errors.push("descripcion supera los 100 caracteres");
   }
 
   // Precio con IVA
   if (!isEmpty(data.precioConIva)) {
-    if (isNaN(Number(data.precioConIva)) || Number(data.precioConIva) <= 0) {
-      errors.push("precioConIva debe ser un número mayor a 0");
+    const parsed = parseNumber(data.precioConIva);
+    if (parsed === null || parsed <= 0) {
+      errors.push("precioConIva debe ser un nÃºmero mayor a 0");
     }
   }
 
   //  Precio mayorista
   if (!isEmpty(data.precioMayoristaSinIva)) {
-    if (
-      isNaN(Number(data.precioMayoristaSinIva)) ||
-      Number(data.precioMayoristaSinIva) < 0
-    ) {
-      errors.push("precioMayoristaSinIva inválido");
+    const parsed = parseNumber(data.precioMayoristaSinIva);
+    if (parsed === null || parsed < 0) {
+      errors.push("precioMayoristaSinIva invÃ¡lido");
     }
   }
 
   // Stock
   if (!isEmpty(data.stock)) {
-    if (!Number.isInteger(Number(data.stock)) || Number(data.stock) < 0) {
+    const parsed = parseNumber(data.stock);
+    if (!Number.isInteger(parsed) || parsed < 0) {
       errors.push("stock debe ser un entero >= 0");
     }
   }
 
-  // Imágenes
+  // ImÃ¡genes
   if (!isEmpty(data.imagenes) && !Array.isArray(data.imagenes)) {
     errors.push("imagenes debe ser un array");
   }

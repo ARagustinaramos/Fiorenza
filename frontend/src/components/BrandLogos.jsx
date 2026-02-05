@@ -12,14 +12,14 @@ export function BrandLogos() {
   ];
 
   return (
-    <section className="h-[180px] px-8 bg-white flex items-center">
+    <section className="py-8 px-4 sm:px-6 lg:px-8 bg-white">
 
-      <div className="max-w-7xl mx-auto w-full flex justify-between items-center">
+      <div className="max-w-7xl mx-auto w-full grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-4 items-center justify-items-center">
         {brands.map((brand) => (
           <div
             key={brand.name}
             className="
-              w-[120px] h-[80px]
+              w-[90px] h-[60px] sm:w-[110px] sm:h-[70px] md:w-[120px] md:h-[80px]
               flex items-center justify-center
               transition-opacity
             "

@@ -2,14 +2,13 @@
 
 import { useRef, useState, useEffect } from "react";
 import emailjs from "@emailjs/browser";
-import ReCAPTCHA from "react-google-recaptcha";
 
 export default function ContactForm() {
   const formRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState(null);
-  const [captchaValido, setCaptchaValido] = useState(null);
+  const [honeypot, setHoneypot] = useState("");
 
   useEffect(() => {
     const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
@@ -40,8 +39,8 @@ export default function ContactForm() {
       return;
     }
 
-    if (!captchaValido) {
-      setError("Por favor completa el captcha para verificar que no sos un robot.");
+    if (honeypot) {
+      setError("No se pudo enviar el formulario.");
       return;
     }
 
@@ -73,8 +72,8 @@ export default function ContactForm() {
   };
 
   return (
-    <section className="w-full max-w-2xl mx-auto py-12">
-      <h2 className="text-2xl font-medium text-gray-900">
+    <section className="w-full max-w-2xl mx-auto py-12 px-4 sm:px-6">
+      <h2 className="text-xl sm:text-2xl font-medium text-gray-900">
         ¿Querés comprar por la web?
       </h2>
 
@@ -86,7 +85,7 @@ export default function ContactForm() {
       <form
         ref={formRef}
         onSubmit={handleSubmit}
-        className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2"
+        className="mt-8 sm:mt-10 grid grid-cols-1 gap-5 sm:gap-6 sm:grid-cols-2"
       >
         <div className="sm:col-span-1">
           <label className="text-sm text-gray-500">Nombre</label>
@@ -148,6 +147,19 @@ export default function ContactForm() {
           />
         </div>
 
+        <div className="sr-only">
+          <label htmlFor="website">Website</label>
+          <input
+            id="website"
+            type="text"
+            name="website"
+            autoComplete="off"
+            tabIndex={-1}
+            value={honeypot}
+            onChange={(e) => setHoneypot(e.target.value)}
+          />
+        </div>
+
         {success && (
           <div className="sm:col-span-2 p-4 bg-green-50 border border-green-200 rounded-lg">
             <p className="text-sm text-green-700 flex items-center gap-2">
@@ -170,18 +182,11 @@ export default function ContactForm() {
           </div>
         )}
 
-        <div className="sm:col-span-2 flex justify-center sm:justify-start">
-          <ReCAPTCHA
-            sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"}
-            onChange={setCaptchaValido}
-          />
-        </div>
-
         <div className="sm:col-span-2 pt-4">
           <button
             type="submit"
             disabled={loading}
-            className="inline-flex items-center gap-2 px-6 py-2 text-sm font-medium text-white
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2 text-sm font-medium text-white
                        bg-red-600 hover:bg-red-700 rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (

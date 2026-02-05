@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { ShoppingCart, User, Shield } from "lucide-react";
@@ -38,17 +38,17 @@ export function Navbar() {
 
   return (
     <>
-      <nav className="bg-gradient-to-l from-red-100 via-red-50 to-white h-20 px-8 flex items-center justify-between shadow-md border-b border-red-100">
+      <nav className="bg-gradient-to-l from-red-100 via-red-50 to-white min-h-20 px-4 sm:px-6 lg:px-8 py-3 sm:py-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-md border-b border-red-100">
 
         <Link
           href="/"
-          className="text-3xl font-bold bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent hover:from-red-700 hover:to-red-900 transition-all"
+          className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent hover:from-red-700 hover:to-red-900 transition-all"
         >
           Fiorenza 
           Repuestos
         </Link>
 
-        <div className="flex items-center gap-8">
+        <div className="w-full sm:w-auto flex flex-wrap items-center justify-between sm:justify-end gap-3 sm:gap-8">
 
 
           {(user?.rol === "mayorista" || user?.rol === "MAYORISTA") && (
@@ -56,7 +56,7 @@ export function Navbar() {
               href="/mayorista"
               className="text-sm font-semibold px-3 py-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-all"
             >
-              Área mayorista
+              Ãrea mayorista
             </Link>
           )}
 
@@ -89,18 +89,18 @@ export function Navbar() {
           {!user ? (
             <button
               onClick={() => setOpenLogin(true)}
-              className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white font-semibold rounded-lg hover:from-red-700 hover:to-red-800 transition-all shadow-md hover:shadow-lg"
+              className="px-5 sm:px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white font-semibold rounded-lg hover:from-red-700 hover:to-red-800 transition-all shadow-md hover:shadow-lg"
             >
               Iniciar sesión
             </button>
           ) : (
-            <div className="flex items-center gap-5 pl-5 border-l border-gray-200">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-5 sm:pl-5 sm:border-l border-gray-200 w-full sm:w-auto">
               <div className="flex flex-col leading-tight">
                 <div className="flex items-center gap-2 text-gray-900">
                   <div className="p-1.5 bg-red-100 rounded-lg">
                     <User className="w-4 h-4 text-red-600" />
                   </div>
-                  <span className="text-sm font-semibold">{user.email}</span>
+                  <span className="text-sm font-semibold break-all">{user.email}</span>
                 </div>
                 <span className="text-xs text-gray-500 mt-1">
                   {roleLabel[user.rol]}
@@ -128,3 +128,4 @@ export function Navbar() {
     </>
   );
 }
+

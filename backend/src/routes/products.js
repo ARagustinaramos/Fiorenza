@@ -1,4 +1,5 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import upload from "../middlewares/upload.js";
 import { bulkUpload } from "../controllers/productBulk.controller.js";
 import { bulkImagesUpload } from "../controllers/productImages.controller.js";
@@ -21,8 +22,17 @@ import {
 
 const router = express.Router();
 
+const bulkLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.BULK_RATE_LIMIT_MAX || 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Demasiadas cargas en poco tiempo, por favor intenta mÃ¡s tarde." },
+});
+
 router.post(
   "/bulk-upload",
+  bulkLimiter,
   auth,
   requireRole("ADMIN"),
   upload.single("file"),
@@ -31,6 +41,7 @@ router.post(
 
 router.post(
   "/bulk-images",
+  bulkLimiter,
   auth,
   requireRole("ADMIN"),
   upload.array("images", 50),
@@ -42,7 +53,7 @@ router.get("/offers", getOfferProducts);
 router.get("/new", getNewProducts);
 router.get("/featured", getFeaturedProducts);
 
-router.get("/", getProducts);
+router.get("/", optionalAuth, getProducts);
 router.get("/:id", optionalAuth, getProductById);
 
 router.post("/", auth, requireRole("ADMIN"), createProduct);

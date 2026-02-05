@@ -7,9 +7,10 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
   const login = async (email, password) => {
-    const res = await fetch("http://localhost:3001/api/auth/login", {
+    const res = await fetch(`${apiBase}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
@@ -40,7 +41,7 @@ export function AuthProvider({ children }) {
       return;
     }
 
-    fetch("http://localhost:3001/api/auth/me", {
+    fetch(`${apiBase}/auth/me`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },

@@ -8,6 +8,21 @@ const normalizeHeader = (text) =>
 
 const getCellValue = (cell) => {
   if (!cell) return "";
+  if (cell.value !== undefined && cell.value !== null) {
+    // Formula cells: ExcelJS stores { formula, result }
+    if (typeof cell.value === "object" && cell.value.result !== undefined) {
+      return cell.value.result;
+    }
+    // Rich text: join text fragments
+    if (typeof cell.value === "object" && Array.isArray(cell.value.richText)) {
+      return cell.value.richText.map((t) => t.text).join("");
+    }
+    // Hyperlinks keep the display text
+    if (typeof cell.value === "object" && cell.value.text !== undefined) {
+      return cell.value.text;
+    }
+    return cell.value;
+  }
   if (typeof cell === "object" && cell.text !== undefined) return cell.text;
   return cell.toString();
 };
@@ -15,6 +30,7 @@ const getCellValue = (cell) => {
 const REQUIRED_COLUMNS = [
   "CODIGO INTERNO",
   "PRECIO PUBLICO FINAL CON IVA",
+  "PRECIO MAYORISTA SIN IVA",
 ];
 
 const sanitizeText = (value) =>
@@ -23,14 +39,45 @@ const sanitizeText = (value) =>
 const normalizeBoolean = (value) =>
   ["si", "sí", "true", "1"].includes(value?.toString().trim().toLowerCase());
 
+const parseNumber = (value) => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+
+  let text = value.toString().trim();
+  if (!text) return null;
+
+  // Remove currency symbols and spaces
+  text = text.replace(/\s+/g, "");
+  text = text.replace(/[^0-9,.-]/g, "");
+
+  const lastComma = text.lastIndexOf(",");
+  const lastDot = text.lastIndexOf(".");
+
+  if (lastComma !== -1 && lastDot !== -1) {
+    if (lastComma > lastDot) {
+      // 1.234,56 -> 1234.56
+      text = text.replace(/\./g, "").replace(",", ".");
+    } else {
+      // 1,234.56 -> 1234.56
+      text = text.replace(/,/g, "");
+    }
+  } else if (lastComma !== -1) {
+    // 1234,56 -> 1234.56
+    text = text.replace(",", ".");
+  }
+
+  const parsed = parseFloat(text);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 const mapExcelToProduct = (row) => ({
   codigoInterno: sanitizeText(row["CODIGO INTERNO"]),
   codigoOriginal: (row["CODIGO ORIGINAL"]?.toString() ?? "").trim(),
   descripcion: sanitizeText(row["DESCRIPCION"]),
   descripcionAdicional: sanitizeText(row["DESCRIPCION ADICIONAL"]),
-  stock: Number(row["STOCK"]) || 0,
-  precioConIva: Number(row["PRECIO PUBLICO FINAL CON IVA"]) || 0,
-  precioMayoristaSinIva: Number(row["PRECIO MAYORISTA SIN IVA"]) || null,
+  stock: parseNumber(row["STOCK"]) || 0,
+  precioConIva: parseNumber(row["PRECIO PUBLICO FINAL CON IVA"]) || 0,
+  precioMayoristaSinIva: parseNumber(row["PRECIO MAYORISTA SIN IVA"]),
   marcaNombre: sanitizeText(row["MARCA"]),
   familiaNombre: sanitizeText(row["FAMILIA"]),
   rubro: sanitizeText(row["RUBRO"]),
@@ -187,6 +234,7 @@ export const bulkUpload = async (req, res) => {
 
           const productMap = new Map();
           existingProducts.forEach(p => productMap.set(p.codigoInterno, p));
+
 
           const promises = batch.map(async ({ item, rowNumber }) => {
             try {
