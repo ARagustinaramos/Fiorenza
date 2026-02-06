@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Image as ImageIcon, Upload } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -13,6 +13,24 @@ export default function AdminBannersPage() {
 
   const apiUrl =
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+
+  useEffect(() => {
+    const fetchHero = async () => {
+      try {
+        const res = await fetch(`${apiUrl}/banners`, { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        const hero = data.find((b) => b.title === "hero");
+        if (hero?.imageUrl) {
+          setPreviewHero(hero.imageUrl);
+        }
+      } catch (error) {
+        console.error("Error cargando hero:", error);
+      }
+    };
+
+    fetchHero();
+  }, [apiUrl]);
 
   const uploadHero = async (file) => {
     setLoadingHero(true);

@@ -135,6 +135,16 @@ export const bulkUpload = async (req, res) => {
     console.log(`[BULK UPLOAD] Iniciando modo: ${mode}`);
     console.log(`[BULK UPLOAD] Body recibido:`, req.body);
 
+    // 👉 Modo REPLACE: limpia todo antes de importar
+    if (mode === "replace") {
+      console.log("[BULK UPLOAD] Limpiando productos existentes...");
+
+      await prisma.product.updateMany({
+        data: { activo: false } // o deleteMany() si querés borrarlos
+      });
+
+      console.log("[BULK UPLOAD] Productos desactivados correctamente");
+    }
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(req.file.buffer);
 

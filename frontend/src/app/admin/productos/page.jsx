@@ -33,12 +33,12 @@ export default function AdminProductos() {
   const [uploadResult, setUploadResult] = useState(null);
 
   const friendlyErrors = {
-  "MISSING_CODE": "Falta el código interno del producto",
-  "descripcion vacía": "Falta la descripción del producto",
-  "precio inválido": "El precio está vacío o es incorrecto",
-  "Archivo requerido": "No se seleccionó ningún archivo",
-  "Columnas faltantes": "El archivo no tiene todas las columnas necesarias",
-};
+    "MISSING_CODE": "Falta el código interno del producto",
+    "descripcion vacía": "Falta la descripción del producto",
+    "precio inválido": "El precio está vacío o es incorrecto",
+    "Archivo requerido": "No se seleccionó ningún archivo",
+    "Columnas faltantes": "El archivo no tiene todas las columnas necesarias",
+  };
 
   useEffect(() => {
     setLoading(false);
@@ -153,8 +153,8 @@ export default function AdminProductos() {
         try {
           const errorData = await res.json();
           errorMessage = errorData.error || errorMessage;
-        } catch {   
-          
+        } catch {
+
         }
 
         throw new Error(errorMessage);
@@ -179,7 +179,7 @@ export default function AdminProductos() {
       setUploadingImages(false);
     }
   };
-  
+
   if (loading) {
     return (
       <div className="flex min-h-screen bg-gray-50">
@@ -206,26 +206,26 @@ export default function AdminProductos() {
   }
 
   const formatErrorMessage = (rawError) => {
-  if (!rawError) return "Error desconocido";
+    if (!rawError) return "Error desconocido";
 
-  if (Array.isArray(rawError)) {
-    return rawError
-      .map(e => friendlyErrors[e] || e)
-      .join(" y ");
-  }
+    if (Array.isArray(rawError)) {
+      return rawError
+        .map(e => friendlyErrors[e] || e)
+        .join(" y ");
+    }
 
-  if (typeof rawError === "string") {
-    return rawError
-      .split("|")   
-      .map(e => {
-        const clean = e.trim();
-        return friendlyErrors[clean] || clean;
-      })
-      .join(" y ");
-  }
+    if (typeof rawError === "string") {
+      return rawError
+        .split("|")
+        .map(e => {
+          const clean = e.trim();
+          return friendlyErrors[clean] || clean;
+        })
+        .join(" y ");
+    }
 
-  return "Error desconocido";
-};
+    return "Error desconocido";
+  };
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -259,9 +259,9 @@ export default function AdminProductos() {
                 <ul className="list-disc list-inside space-y-1">
                   {uploadResult.details.errors?.slice(0, 10).map((err, idx) => (
                     <li key={idx} className="text-xs">
-  <span className="font-medium">Fila {err.row}:</span>{" "}
-  {formatErrorMessage(err.error)}
-</li>
+                      <span className="font-medium">Fila {err.row}:</span>{" "}
+                      {formatErrorMessage(err.error)}
+                    </li>
                   ))}
                   {uploadResult.details.errorsCount > 10 && (
                     <li className="text-xs font-medium">... y {uploadResult.details.errorsCount - 10} errores más</li>
@@ -381,6 +381,55 @@ export default function AdminProductos() {
                 ) : (
                   "Subir nuevos"
                 )}
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm border border-yellow-300 p-6 mb-6">
+          <h2 className="text-lg font-semibold mb-2 text-yellow-700">
+            Reemplazar TODO el catálogo (recomendado)
+          </h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Desactiva todo el catálogo actual y carga el Excel completo nuevamente.
+          </p>
+
+          <div className="flex gap-4 items-end">
+            <div className="flex-1">
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                id="csv-replace"
+                onChange={(e) => {
+                  setCsvFileCreate(e.target.files?.[0] || null);
+                }}
+              />
+              <input
+                type="text"
+                value={csvFileCreate?.name || ""}
+                readOnly
+                className="w-full px-4 py-3 border rounded-lg bg-gray-50"
+              />
+            </div>
+
+            <label
+              htmlFor="csv-replace"
+              className="px-6 py-3 bg-yellow-500 text-white rounded-lg cursor-pointer flex items-center gap-2"
+            >
+              <Upload className="w-4 h-4" />
+              Seleccionar
+            </label>
+
+            {csvFileCreate && (
+              <button
+                onClick={() => {
+                  if (!confirm("Esto va a desactivar todo el catálogo actual. ¿Seguro?")) return;
+                  handleExcelUpload(csvFileCreate, "replace");
+                }}
+                disabled={uploadingExcel}
+                className="px-6 py-3 bg-yellow-600 text-white rounded-lg disabled:opacity-50"
+              >
+                {uploadingExcel ? "Procesando..." : "Reemplazar todo"}
               </button>
             )}
           </div>
