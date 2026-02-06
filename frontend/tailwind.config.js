@@ -1,13 +1,23 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
-    './pages/**/*.{js,jsx}',
-    './components/**/*.{js,jsx}',
-    './app/**/*.{js,jsx}',
+    './src/pages/**/*.{js,jsx,ts,tsx}',
+    './src/components/**/*.{js,jsx,ts,tsx}',
+    './src/app/**/*.{js,jsx,ts,tsx}',
   ],
   theme: {
-    extend: {},
+  extend: {
+    fontFamily: {
+      sans: ["var(--font-montserrat)"],
+    },
   },
+},
   plugins: [],
 }
+
+
+
+
+
+
 

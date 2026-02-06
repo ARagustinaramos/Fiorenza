@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN     "coeficiente" DOUBLE PRECISION NOT NULL DEFAULT 0;

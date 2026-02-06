@@ -9,19 +9,29 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "next": "14.0.4",
+    "@emailjs/browser": "^4.4.1",
+    "@radix-ui/react-accordion": "^1.2.12",
     "@reduxjs/toolkit": "^2.0.1",
+    "axios": "^1.6.2",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.29.2",
+    "lucide-react": "^0.562.0",
+    "md5": "^2.3.0",
+    "next": "14.0.4",
+    "react": "^18.2.0",
+    "react-aspect-ratio": "^1.1.9",
+    "react-dom": "^18.2.0",
+    "react-google-recaptcha": "^3.1.0",
     "react-redux": "^9.0.4",
-    "axios": "^1.6.2"
+    "react-slick": "^0.31.0",
+    "slick-carousel": "^1.8.1",
+    "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.16",
-    "postcss": "^8.4.32",
-    "tailwindcss": "^3.4.0",
     "eslint": "^8.56.0",
-    "eslint-config-next": "14.0.4"
+    "eslint-config-next": "14.0.4",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^3.4.0"
   }
 }
-
