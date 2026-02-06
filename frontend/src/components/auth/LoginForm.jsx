@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
 
@@ -10,8 +10,17 @@ export function LoginForm({ onSuccess }) {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberEmail, setRememberEmail] = useState(true);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const savedEmail = localStorage.getItem("rememberedEmail");
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberEmail(true);
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -20,9 +29,14 @@ export function LoginForm({ onSuccess }) {
 
     try {
       const user = await login(email, password);
+      if (rememberEmail) {
+        localStorage.setItem("rememberedEmail", email);
+      } else {
+        localStorage.removeItem("rememberedEmail");
+      }
       onSuccess?.();
 
-      // Redirección según el rol del usuario
+     
       if (user.rol === "mayorista" || user.rol === "MAYORISTA") {
         router.push("/mayorista");
       } else if (user.rol === "minorista" || user.rol === "MINORISTA") {
@@ -69,6 +83,16 @@ export function LoginForm({ onSuccess }) {
         onChange={(e) => setPassword(e.target.value)}
         required
       />
+      
+      <label className="flex items-center gap-2 text-sm text-gray-600">
+        <input
+          type="checkbox"
+          checked={rememberEmail}
+          onChange={(e) => setRememberEmail(e.target.checked)}
+          className="accent-red-600"
+        />
+        Recordar mi email
+      </label>
       <div className="text-right">
         <button
           type="button"
@@ -89,3 +113,5 @@ export function LoginForm({ onSuccess }) {
     </form>
   );
 }
+
+

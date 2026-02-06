@@ -52,12 +52,10 @@ export const validateProductInput = (data, isUpdate = false) => {
     }
   }
 
-  // DescripciÃ³n
   if (!isEmpty(data.descripcion) && data.descripcion.length > 100) {
     errors.push("descripcion supera los 100 caracteres");
   }
 
-  // Precio con IVA
   if (!isEmpty(data.precioConIva)) {
     const parsed = parseNumber(data.precioConIva);
     if (parsed === null || parsed <= 0) {

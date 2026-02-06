@@ -179,7 +179,7 @@ export default function Pedidos() {
 
             <div className="bg-white rounded-lg border border-[#D9D9D9] overflow-hidden shadow-sm">
               
-              <div className="bg-[#1E3A8A] text-white grid grid-cols-[150px_120px_150px_1fr_120px_120px] gap-4 px-6 py-4">
+              <div className="bg-red-700 text-white grid grid-cols-[150px_120px_150px_1fr_120px_120px] gap-4 px-6 py-4">
                 <div className="text-sm font-bold">Número</div>
                 <div className="text-sm font-bold">Fecha</div>
                 <div className="text-sm font-bold">Estado</div>
@@ -198,7 +198,7 @@ export default function Pedidos() {
                   <p>{error}</p>
                   <button
                     onClick={fetchOrders}
-                    className="mt-4 px-4 py-2 bg-[#0D6EFD] text-white rounded-md hover:bg-[#0b5ed7] transition-colors"
+                    className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
                   >
                     Reintentar
                   </button>
@@ -208,7 +208,7 @@ export default function Pedidos() {
                   <p>No tienes pedidos aún</p>
                   <button
                     onClick={() => router.push(getProductsPath())}
-                    className="mt-4 px-4 py-2 bg-[#0D6EFD] text-white rounded-md hover:bg-[#0b5ed7] transition-colors"
+                    className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
                   >
                     Ver productos
                   </button>
@@ -249,7 +249,7 @@ export default function Pedidos() {
                       <div>
                         <button
                           onClick={() => openOrderDetail(order.id)}
-                          className="inline-flex items-center gap-2 px-3 py-2 bg-[#0D6EFD] text-white text-xs rounded-md hover:bg-[#0b5ed7] transition-colors"
+                          className="inline-flex items-center gap-2 px-3 py-2 bg-red-600 text-white text-xs rounded-md hover:bg-red-700 transition-colors"
                         >
                           <Eye className="w-4 h-4" />
                           Ver detalle
@@ -358,7 +358,7 @@ export default function Pedidos() {
             <div className="mt-6 text-right">
               <button
                 onClick={() => setSelectedOrder(null)}
-                className="px-4 py-2 bg-[#0D6EFD] text-white rounded hover:bg-[#0b5ed7]"
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
               >
                 Cerrar
               </button>

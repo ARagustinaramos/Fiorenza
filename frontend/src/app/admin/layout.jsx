@@ -7,16 +7,21 @@ import AdminSidebar from "../../components/AdminSiderbar";
 import { Navbar } from "../../components/Navbar";
 
 export default function AdminLayout({ children }) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!user || user.rol !== "ADMIN") {
+    if (loading) return;
+    if (!user || (user.rol !== "ADMIN" && user.rol !== "admin")) {
       router.push("/");
     }
-  }, [user, router]);
+  }, [user, loading, router]);
 
-  if (!user || user.rol !== "ADMIN") {
+  if (loading) {
+    return null;
+  }
+
+  if (!user || (user.rol !== "ADMIN" && user.rol !== "admin")) {
     return null;
   }
 
