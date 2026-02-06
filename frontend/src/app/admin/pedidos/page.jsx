@@ -79,19 +79,33 @@ export default function AdminPedidos() {
       setStatusUpdating(true);
       setStatusError(null);
 
-      const res = await fetch(
-        `${apiUrl}/orders/${selectedOrder.id}/status`,
-        {
-          method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${getToken()}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ status: newStatus }),
-        }
-      );
+      let url = `${apiUrl}/orders/${selectedOrder.id}/status`;
+      let method = "PATCH";
+      let body = JSON.stringify({ status: newStatus });
 
-      if (!res.ok) throw new Error("Error al actualizar estado");
+      if (newStatus === "CONFIRMED") {
+        url = `${apiUrl}/orders/${selectedOrder.id}/confirm`;
+        method = "POST";
+        body = null;
+      } else if (newStatus === "CANCELLED") {
+        url = `${apiUrl}/orders/${selectedOrder.id}/cancel`;
+        method = "PATCH";
+        body = null;
+      }
+
+      const res = await fetch(url, {
+        method,
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+          ...(body ? { "Content-Type": "application/json" } : {}),
+        },
+        body,
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.error || "Error al actualizar estado");
+      }
 
       const updated = await res.json();
 
