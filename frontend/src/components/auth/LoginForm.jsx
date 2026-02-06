@@ -82,7 +82,7 @@ export function LoginForm({ onSuccess }) {
       <button
         type="submit"
         disabled={loading}
-        className="w-full bg-[#0D6EFD] text-white py-3 rounded-lg hover:bg-[#0b5ed7] disabled:opacity-50"
+        className="btn-primary w-full py-3 disabled:opacity-50"
       >
         {loading ? "Ingresando..." : "Entrar"}
       </button>

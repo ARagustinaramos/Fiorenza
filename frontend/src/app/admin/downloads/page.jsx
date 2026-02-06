@@ -65,7 +65,7 @@ export default function AdminDownloadsPage() {
   };
 
   return (
-    <div className="space-y-8 max-w-3xl">
+    <div className="space-y-8 max-w-3xl mx-auto px-4">
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}

@@ -71,7 +71,7 @@ export default function DownloadsPage() {
 
       {/* TABLA DESKTOP */}
 
-      <div className="hidden md:block overflow-hidden border rounded-2xl shadow-sm">
+      <div className="hidden md:block overflow-hidden border rounded-2xl shadow-sm max-w-4xl mx-auto w-full">
 
         <table className="w-full text-sm">
 
@@ -131,7 +131,7 @@ export default function DownloadsPage() {
 
       {/* MOBILE */}
 
-      <div className="md:hidden space-y-4">
+      <div className="md:hidden space-y-4 max-w-2xl mx-auto w-full">
 
         {filtered.map((file) => (
           <motion.div

@@ -56,7 +56,7 @@ export function Navbar() {
               href="/mayorista"
               className="text-sm font-semibold px-3 py-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-all"
             >
-              Ãrea mayorista
+              Área mayorista
             </Link>
           )}
 
@@ -89,7 +89,7 @@ export function Navbar() {
           {!user ? (
             <button
               onClick={() => setOpenLogin(true)}
-              className="px-5 sm:px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white font-semibold rounded-lg hover:from-red-700 hover:to-red-800 transition-all shadow-md hover:shadow-lg"
+              className="btn-primary px-5 sm:px-6 py-2.5"
             >
               Iniciar sesión
             </button>
@@ -128,4 +128,5 @@ export function Navbar() {
     </>
   );
 }
+
 

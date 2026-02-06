@@ -11,34 +11,27 @@ export default function AdminBannersPage() {
   const [previewBanner, setPreviewBanner] = useState(null);
   const [previewHero, setPreviewHero] = useState(null);
 
+  const apiUrl =
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
   const uploadHero = async (file) => {
     setLoadingHero(true);
 
     try {
       const data = new FormData();
-      data.append("file", file);
-      data.append(
-        "upload_preset",
-        process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
-      );
+      data.append("image", file);
+      data.append("title", "hero"); 
 
-      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+      const res = await fetch(`${apiUrl}/banners`, {
+        method: "POST",
+        body: data,
+      });
 
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-        {
-          method: "POST",
-          body: data,
-        }
-      );
+      if (!res.ok) throw new Error("Error en API");
 
-      if (!res.ok) throw new Error("Error en Cloudinary");
       const result = await res.json();
 
-      localStorage.setItem("heroImage", result.secure_url);
-
-      setPreviewHero(result.secure_url);
+      setPreviewHero(result.imageUrl);
       alert("Hero actualizado ✅");
     } catch (error) {
       alert("Error al subir la imagen");
@@ -55,15 +48,13 @@ export default function AdminBannersPage() {
       const data = new FormData();
       data.append("image", file);
 
-      const apiUrl =
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
-
       const res = await fetch(`${apiUrl}/banners`, {
         method: "POST",
         body: data,
       });
 
       if (!res.ok) throw new Error("Error en API");
+
       setPreviewBanner(null);
       alert("Banner cargado ✅");
     } catch (error) {
@@ -74,13 +65,12 @@ export default function AdminBannersPage() {
   };
 
   return (
-    <div className="space-y-12">
-
-
+    <div className="space-y-12 max-w-3xl mx-auto px-4">
+      {/* HERO */}
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white border rounded-2xl p-6 max-w-xl shadow-sm"
+        className="bg-white border rounded-2xl p-6 max-w-xl mx-auto shadow-sm"
       >
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
           <ImageIcon className="w-5 h-5" />
@@ -129,7 +119,7 @@ export default function AdminBannersPage() {
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="bg-white border rounded-2xl p-6 max-w-xl shadow-sm"
+        className="bg-white border rounded-2xl p-6 max-w-xl mx-auto shadow-sm"
       >
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
           <ImageIcon className="w-5 h-5" />

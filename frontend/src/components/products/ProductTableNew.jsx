@@ -280,42 +280,57 @@ export function ProductTableNew() {
   return (
     <div className="relative">
       {hoveredProduct && (
-        <div
-          onMouseEnter={() => {
-            setIsHoveringPanel(true);
-            if (hoverCloseTimeoutRef.current) {
-              clearTimeout(hoverCloseTimeoutRef.current);
-              hoverCloseTimeoutRef.current = null;
-            }
-          }}
-          onMouseLeave={() => {
-            setIsHoveringPanel(false);
-            if (!isPanelPinned) {
-              setHoveredProduct(null);
-            }
-          }}
-          className={`
-          bg-white border shadow-lg rounded-lg z-50 flex flex-col
-          ${isMobile
-              ? "fixed inset-x-4 bottom-4 rounded-t-xl max-h-[80vh]"
-              : "fixed right-6 top-1/2 -translate-y-1/2 w-[320px] md:w-[360px] xl:w-[420px]"
-            }
-        `}
-        >
-          {(isMobile || isPanelPinned) && (
-            <button
+        <>
+          {isMobile && (
+            <div
+              className="fixed inset-0 bg-black/40 z-40"
               onClick={() => {
                 setHoveredProduct(null);
                 setIsPanelPinned(false);
               }}
-              className="absolute top-2 right-2 text-gray-400 z-10"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            />
           )}
+          <div
+            onMouseEnter={() => {
+              setIsHoveringPanel(true);
+              if (hoverCloseTimeoutRef.current) {
+                clearTimeout(hoverCloseTimeoutRef.current);
+                hoverCloseTimeoutRef.current = null;
+              }
+            }}
+            onMouseLeave={() => {
+              setIsHoveringPanel(false);
+              if (!isPanelPinned) {
+                setHoveredProduct(null);
+              }
+            }}
+            className={`
+            bg-white border shadow-lg z-50 flex flex-col
+            ${isMobile
+                ? "fixed inset-x-0 bottom-0 rounded-t-2xl max-h-[85vh] overflow-hidden"
+                : "fixed right-6 top-1/2 -translate-y-1/2 w-[320px] md:w-[360px] xl:w-[420px] rounded-lg"
+              }
+          `}
+          >
+            {(isMobile || isPanelPinned) && (
+              <div className="flex items-center justify-between px-4 pt-4">
+                {isMobile && (
+                  <div className="h-1 w-12 bg-gray-300 rounded-full mx-auto" />
+                )}
+                <button
+                  onClick={() => {
+                    setHoveredProduct(null);
+                    setIsPanelPinned(false);
+                  }}
+                  className="absolute top-3 right-3 text-gray-400 z-10"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            )}
 
-          <div className="p-4 space-y-2 overflow-y-auto">
-            <h3 className="font-semibold mb-2">{hoveredProduct.descripcion}</h3>
+            <div className="p-4 space-y-2 overflow-y-auto">
+              <h3 className="font-semibold mb-2">{hoveredProduct.descripcion}</h3>
 
             {hoveredProduct.images && hoveredProduct.images.length > 0 && (
               <div className="mb-3 rounded-lg overflow-hidden border border-gray-200 h-52 flex items-center justify-center bg-gray-50">
@@ -379,24 +394,25 @@ export function ProductTableNew() {
             </div>
           </div>
 
-          <div className="border-t p-4 bg-gray-50">
-            <button
-              onClick={() => {
-                dispatch(addToCart(hoveredProduct));
-                setCartToast("Producto agregado al carrito");
-                if (cartToastTimeoutRef.current) {
-                  clearTimeout(cartToastTimeoutRef.current);
-                }
-                cartToastTimeoutRef.current = setTimeout(() => {
-                  setCartToast(null);
-                }, 2000);
-              }}
-              className="w-full rounded-md bg-green-600 text-white py-2 text-sm hover:bg-green-700 transition-colors"
-            >
-              Agregar al carrito
-            </button>
+            <div className="border-t p-4 bg-gray-50">
+              <button
+                onClick={() => {
+                  dispatch(addToCart(hoveredProduct));
+                  setCartToast("Producto agregado al carrito");
+                  if (cartToastTimeoutRef.current) {
+                    clearTimeout(cartToastTimeoutRef.current);
+                  }
+                  cartToastTimeoutRef.current = setTimeout(() => {
+                    setCartToast(null);
+                  }, 2000);
+                }}
+                className="w-full rounded-md bg-green-600 text-white py-2 text-sm hover:bg-green-700 transition-colors"
+              >
+                Agregar al carrito
+              </button>
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {cartToast && (
@@ -636,43 +652,61 @@ export function ProductTableNew() {
             </div>
           </div>
           {loading && (
-            <div className="bg-white rounded-lg border overflow-x-auto">
-              <div className="min-w-[900px]">
-                <div
-                  className="
-                  bg-red-700 text-white
-                  grid
-                  grid-cols-[40px_1fr_1fr_1fr_1fr_3fr_1fr]
-                  px-4 sm:px-6 py-3 sm:py-4
-                  font-semibold text-xs sm:text-sm
-                "
-                >
-                  <div></div>
-                  <div>Cód.</div>
-                  <div>Original</div>
-                  <div>Rubro</div>
-                  <div>Marca</div>
-                  <div>Descripción</div>
-                  <div className="text-right">Precio mayorista</div>
-                </div>
-                <div className="divide-y">
+            <>
+              {isMobile ? (
+                <div className="space-y-4">
                   {skeletonRows.map((_, idx) => (
                     <div
-                      key={`skeleton-${idx}`}
-                      className="grid grid-cols-[40px_90px_120px_120px_120px_1fr_160px] px-4 sm:px-6 py-4 sm:py-5 text-xs sm:text-sm"
+                      key={`skeleton-card-${idx}`}
+                      className="bg-white rounded-lg border p-4 shadow-sm space-y-3"
                     >
-                      <div className="h-5 w-5 rounded-full bg-gray-200 animate-pulse" />
-                      <div className="h-4 w-16 bg-gray-200 animate-pulse rounded" />
-                      <div className="h-4 w-20 bg-gray-200 animate-pulse rounded" />
-                      <div className="h-4 w-16 bg-gray-200 animate-pulse rounded" />
-                      <div className="h-4 w-20 bg-gray-200 animate-pulse rounded" />
-                      <div className="h-4 w-3/4 bg-gray-200 animate-pulse rounded" />
-                      <div className="h-4 w-20 bg-gray-200 animate-pulse rounded justify-self-end" />
+                      <div className="h-4 w-2/3 bg-gray-200 animate-pulse rounded" />
+                      <div className="h-3 w-1/3 bg-gray-200 animate-pulse rounded" />
+                      <div className="h-3 w-1/2 bg-gray-200 animate-pulse rounded" />
+                      <div className="h-4 w-1/4 bg-gray-200 animate-pulse rounded" />
                     </div>
                   ))}
                 </div>
-              </div>
-            </div>
+              ) : (
+                <div className="bg-white rounded-lg border overflow-x-auto">
+                  <div className="min-w-[900px]">
+                    <div
+                      className="
+                      bg-red-700 text-white
+                      grid
+                      grid-cols-[40px_1fr_1fr_1fr_1fr_3fr_1fr]
+                      px-4 sm:px-6 py-3 sm:py-4
+                      font-semibold text-xs sm:text-sm
+                    "
+                    >
+                      <div></div>
+                      <div>Cód.</div>
+                      <div>Original</div>
+                      <div>Rubro</div>
+                      <div>Marca</div>
+                      <div>Descripción</div>
+                      <div className="text-right">Precio mayorista</div>
+                    </div>
+                    <div className="divide-y">
+                      {skeletonRows.map((_, idx) => (
+                        <div
+                          key={`skeleton-${idx}`}
+                          className="grid grid-cols-[40px_90px_120px_120px_120px_1fr_160px] px-4 sm:px-6 py-4 sm:py-5 text-xs sm:text-sm"
+                        >
+                          <div className="h-5 w-5 rounded-full bg-gray-200 animate-pulse" />
+                          <div className="h-4 w-16 bg-gray-200 animate-pulse rounded" />
+                          <div className="h-4 w-20 bg-gray-200 animate-pulse rounded" />
+                          <div className="h-4 w-16 bg-gray-200 animate-pulse rounded" />
+                          <div className="h-4 w-20 bg-gray-200 animate-pulse rounded" />
+                          <div className="h-4 w-3/4 bg-gray-200 animate-pulse rounded" />
+                          <div className="h-4 w-20 bg-gray-200 animate-pulse rounded justify-self-end" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {!loading && products.length === 0 && (
@@ -693,27 +727,9 @@ export function ProductTableNew() {
           )}
 
           {!loading && products.length > 0 && (
-            <div className="bg-white rounded-lg border overflow-x-auto shadow-sm">
-              <div className="min-w-[900px]">
-                <div
-                  className="
-      bg-red-700 text-white
-      grid
-      grid-cols-[40px_1fr_1fr_1fr_1fr_3fr_1fr]
-      px-4 sm:px-6 py-3 sm:py-4
-      font-semibold text-xs sm:text-sm
-    "
-                >
-                  <div></div>
-                  <div>Cód.</div>
-                  <div>Original</div>
-                  <div>Rubro</div>
-                  <div>Marca</div>
-                  <div>Descripción</div>
-                  <div className="text-right">Precio mayorista</div>
-                </div>
-
-                <div className="divide-y">
+            <>
+              {isMobile ? (
+                <div className="space-y-4">
                   {products.map((product) => (
                     <div
                       key={product.id}
@@ -721,42 +737,134 @@ export function ProductTableNew() {
                         setHoveredProduct(product);
                         setIsPanelPinned(true);
                       }}
-                      className="grid grid-cols-[40px_90px_120px_120px_120px_1fr_160px] px-4 sm:px-6 py-4 sm:py-5 hover:bg-gray-100 transition cursor-pointer text-xs sm:text-sm"
+                      className="bg-white rounded-lg border p-4 shadow-sm hover:bg-gray-50 transition cursor-pointer"
                     >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            {product.images && product.images.length > 0 ? (
+                              <Camera className="w-4 h-4 text-red-500 flex-shrink-0" />
+                            ) : (
+                              <div className="w-4 h-4 flex-shrink-0" />
+                            )}
+                            <h4 className="text-sm font-semibold text-gray-900 truncate">
+                              {product.descripcion}
+                            </h4>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Cód: {product.codigoInterno || "-"} • Orig: {product.codigoOriginal || "-"}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {product.marca || "-"} • {product.rubro || "-"}
+                          </p>
+                        </div>
+
+                        <button
+                          onClick={(e) => toggleFavorite(product.id, e)}
+                          className="hover:opacity-70 transition-opacity"
+                        >
+                          <Heart
+                            className={`w-5 h-5 ${favoritesIds.has(product.id)
+                              ? "fill-red-500 text-red-500"
+                              : "text-gray-400"
+                              }`}
+                          />
+                        </button>
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-between">
+                        <span className="text-xs text-gray-500">Precio mayorista</span>
+                        <span className="text-base font-semibold text-gray-900">
+                          ${Number(product.precioMayoristaSinIva ?? product.precioConIva ?? 0).toLocaleString("es-AR")}
+                        </span>
+                      </div>
+
                       <button
-                        onClick={(e) => toggleFavorite(product.id, e)}
-                        className="hover:opacity-70 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          dispatch(addToCart(product));
+                          setCartToast("Producto agregado al carrito");
+                          if (cartToastTimeoutRef.current) {
+                            clearTimeout(cartToastTimeoutRef.current);
+                          }
+                          cartToastTimeoutRef.current = setTimeout(() => {
+                            setCartToast(null);
+                          }, 2000);
+                        }}
+                        className="mt-3 w-full rounded-md bg-green-600 text-white py-2 text-sm hover:bg-green-700 transition-colors"
                       >
-                        <Heart
-                          className={`w-5 h-5 ${favoritesIds.has(product.id)
-                            ? "fill-red-500 text-red-500"
-                            : "text-gray-400"
-                            }`}
-                        />
+                        Agregar al carrito
                       </button>
-
-                      <div className="truncate">{product.codigoInterno || "-"}</div>
-                      <div className="truncate">{product.codigoOriginal || "-"}</div>
-                      <div className="truncate">{product.rubro || "-"}</div>
-                      <div className="truncate">{product.marca || "-"}</div>
-
-                      <div className="flex items-center gap-2 truncate">
-                        {product.images && product.images.length > 0 ? (
-                          <Camera className="w-5 h-5 text-red-500 flex-shrink-0" />
-                        ) : (
-                          <div className="w-5 h-5 flex-shrink-0" />
-                        )}
-                        <span className="truncate">{product.descripcion}</span>
-                      </div>
-
-                      <div className="font-semibold text-right text-gray-900">
-                        ${Number(product.precioMayoristaSinIva ?? product.precioConIva ?? 0).toLocaleString("es-AR")}
-                      </div>
                     </div>
                   ))}
                 </div>
-              </div>
-            </div>
+              ) : (
+                <div className="bg-white rounded-lg border overflow-x-auto shadow-sm">
+                  <div className="min-w-[900px]">
+                    <div
+                      className="
+          bg-red-700 text-white
+          grid
+          grid-cols-[40px_1fr_1fr_1fr_1fr_3fr_1fr]
+          px-4 sm:px-6 py-3 sm:py-4
+          font-semibold text-xs sm:text-sm
+        "
+                    >
+                      <div></div>
+                      <div>Cód.</div>
+                      <div>Original</div>
+                      <div>Rubro</div>
+                      <div>Marca</div>
+                      <div>Descripción</div>
+                      <div className="text-right">Precio mayorista</div>
+                    </div>
+
+                    <div className="divide-y">
+                      {products.map((product) => (
+                        <div
+                          key={product.id}
+                          onClick={() => {
+                            setHoveredProduct(product);
+                            setIsPanelPinned(true);
+                          }}
+                          className="grid grid-cols-[40px_90px_120px_120px_120px_1fr_160px] px-4 sm:px-6 py-4 sm:py-5 hover:bg-gray-100 transition cursor-pointer text-xs sm:text-sm"
+                        >
+                          <button
+                            onClick={(e) => toggleFavorite(product.id, e)}
+                            className="hover:opacity-70 transition-opacity"
+                          >
+                            <Heart
+                              className={`w-5 h-5 ${favoritesIds.has(product.id)
+                                ? "fill-red-500 text-red-500"
+                                : "text-gray-400"
+                                }`}
+                            />
+                          </button>
+
+                          <div className="truncate">{product.codigoInterno || "-"}</div>
+                          <div className="truncate">{product.codigoOriginal || "-"}</div>
+                          <div className="truncate">{product.rubro || "-"}</div>
+                          <div className="truncate">{product.marca || "-"}</div>
+
+                          <div className="flex items-center gap-2 truncate">
+                            {product.images && product.images.length > 0 ? (
+                              <Camera className="w-5 h-5 text-red-500 flex-shrink-0" />
+                            ) : (
+                              <div className="w-5 h-5 flex-shrink-0" />
+                            )}
+                            <span className="truncate">{product.descripcion}</span>
+                          </div>
+
+                          <div className="font-semibold text-right text-gray-900">
+                            ${Number(product.precioMayoristaSinIva ?? product.precioConIva ?? 0).toLocaleString("es-AR")}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
           {/* PAGINACIÓN */}
           <div className="flex justify-center gap-4 pt-4">

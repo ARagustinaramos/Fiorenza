@@ -8,6 +8,10 @@
   --font-size: 16px;
   --background: #ffffff;
   --foreground: oklch(0.145 0 0);
+  --brand: #dc2626;
+  --brand-dark: #b91c1c;
+  --brand-soft: #fee2e2;
+  --brand-ring: rgba(220, 38, 38, 0.35);
   --card: #ffffff;
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
@@ -97,6 +101,31 @@
     background-color: #f8f4f4;
     background-image: radial-gradient(rgba(248, 5, 5, 0.05) 1px, transparent 1px);
     background-size: 24px 24px;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    background-color: var(--brand);
+    color: #ffffff;
+    font-weight: 600;
+    border-radius: 0.5rem;
+    transition: background-color 200ms ease, box-shadow 200ms ease,
+      transform 120ms ease;
+  }
+
+  .btn-primary:hover {
+    background-color: var(--brand-dark);
+  }
+
+  .btn-primary:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--brand-ring);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 }
 

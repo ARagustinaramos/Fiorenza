@@ -117,7 +117,7 @@ export default function Carrito() {
           <div className="flex-1 w-full">
             <div className="bg-white rounded-lg border border-[#D9D9D9] overflow-hidden shadow-sm">
 
-              <div className="bg-[#1E3A8A] text-white grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] px-6 py-3">
+              <div className="bg-red-700 text-white grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] px-6 py-3">
                 <div className="font-bold">Producto</div>
                 <div className="font-bold">Código</div>
                 <div className="font-bold">Cantidad</div>
@@ -165,7 +165,7 @@ export default function Carrito() {
             <div className="mt-4">
               <button
                 onClick={() => router.push(getProductsPath())}
-                className="text-[#0D6EFD] font-medium hover:underline"
+                className="text-red-600 font-medium hover:underline"
               >
                 ← Seguir comprando
               </button>
@@ -189,14 +189,14 @@ export default function Carrito() {
 
             <div className="flex justify-between mb-6">
               <span className="font-bold">Total</span>
-              <span className="text-xl font-bold text-[#0D6EFD]">
+              <span className="text-xl font-bold text-red-600">
                 {formatPrice(total)}
               </span>
             </div>
 
             <button
               onClick={handleCreateOrder}
-              className="w-full bg-[#0D6EFD] text-white py-3 rounded-lg"
+              className="btn-primary w-full py-3"
             >
               Enviar pedido
             </button>
