@@ -5,7 +5,7 @@ import { Download, Search, FileText } from "lucide-react";
 import { motion } from "framer-motion";
 
 const API =
-  process.env.NEXT_PUBLIC_BACK_URL || "http://localhost:3001";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
 export default function DownloadsPage() {
   const [files, setFiles] = useState([]);
