@@ -5,7 +5,7 @@ import { Upload, FileText, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 const API =
-  process.env.NEXT_PUBLIC_BACK_URL || "http://localhost:3001";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
 export default function AdminDownloadsPage() {
   const [files, setFiles] = useState([]);
