@@ -31,7 +31,9 @@ const limiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Demasiadas peticiones desde esta IP, por favor intenta más tarde." }
   ,
-  skip: (req) => req.path.startsWith("/api/products/bulk-upload/status")
+  skip: (req) =>
+    req.path.startsWith("/api/products/bulk-upload/status") ||
+    req.path.startsWith("/api/banners")
 });
 const allowedOrigins = (process.env.CORS_ORIGINS || "")
   .split(",")

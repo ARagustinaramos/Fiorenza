@@ -18,8 +18,8 @@ export function Hero() {
           cache: "no-store",
         });
         const data = await res.json();
-
-        const hero = data.find((b) => b.title === "hero");
+        const list = Array.isArray(data) ? data : [];
+        const hero = list.find((b) => b.title === "hero");
 
         if (hero?.imageUrl) {
           setHeroImage(hero.imageUrl);
