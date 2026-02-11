@@ -42,8 +42,6 @@ router.post(
 
 router.get(
   "/bulk-upload/status/:id",
-  auth,
-  requireRole("ADMIN"),
   bulkUploadStatus
 );
 
