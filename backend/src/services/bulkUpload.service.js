@@ -17,8 +17,16 @@ const runInBatches = async (items, batchSize, handler) => {
   }
 };
 
-const normalizeHeader = (text) =>
-  text?.toString().toUpperCase().trim().replace(/\s+/g, " ");
+const normalizeHeader = (text) => {
+  if (text === null || text === undefined) return "";
+  return text
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .trim()
+    .replace(/\s+/g, " ");
+};
 
 const getCellValue = (cell) => {
   if (!cell) return "";
