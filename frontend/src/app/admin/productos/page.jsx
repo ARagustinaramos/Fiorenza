@@ -24,6 +24,7 @@ export default function AdminProductos() {
   // Estados separados para cada modo
   const [csvFileUpdate, setCsvFileUpdate] = useState(null);
   const [csvFileCreate, setCsvFileCreate] = useState(null);
+  const [csvFileReplace, setCsvFileReplace] = useState(null);
   const [csvFileDelete, setCsvFileDelete] = useState(null);
 
   const [imageFiles, setImageFiles] = useState([]);
@@ -105,6 +106,7 @@ export default function AdminProductos() {
       // Limpiar solo el archivo del modo correspondiente
       if (mode === "update") setCsvFileUpdate(null);
       if (mode === "create") setCsvFileCreate(null);
+      if (mode === "replace") setCsvFileReplace(null);
       if (mode === "delete") setCsvFileDelete(null);
 
       document.getElementById(`csv-${mode}`).value = "";
@@ -348,12 +350,12 @@ export default function AdminProductos() {
                 className="hidden"
                 id="csv-create"
                 onChange={(e) => {
-                  setCsvFileCreate(e.target.files?.[0] || null);
+                  setCsvFileReplace(e.target.files?.[0] || null);
                 }}
               />
               <input
                 type="text"
-                value={csvFileCreate?.name || ""}
+                value={csvFileReplace?.name || ""}
                 readOnly
                 className="w-full px-4 py-3 border rounded-lg bg-gray-50"
               />
@@ -420,11 +422,11 @@ export default function AdminProductos() {
               Seleccionar
             </label>
 
-            {csvFileCreate && (
+            {csvFileReplace && (
               <button
                 onClick={() => {
                   if (!confirm("Esto va a desactivar todo el catálogo actual. ¿Seguro?")) return;
-                  handleExcelUpload(csvFileCreate, "replace");
+                  handleExcelUpload(csvFileReplace, "replace");
                 }}
                 disabled={uploadingExcel}
                 className="px-6 py-3 bg-yellow-600 text-white rounded-lg disabled:opacity-50"
