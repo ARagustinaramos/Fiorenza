@@ -159,7 +159,7 @@ export default function AdminProductos() {
         };
 
         poll();
-        pollRef.current = setInterval(poll, 3000);
+        pollRef.current = setInterval(poll, 8000);
       };
 
       if (!data.jobId) {
