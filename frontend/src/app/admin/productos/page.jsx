@@ -92,10 +92,7 @@ export default function AdminProductos() {
         const poll = async () => {
           try {
             const statusRes = await fetch(
-              `${apiUrl}/products/bulk-upload/status/${jobId}`,
-              {
-                headers: { Authorization: `Bearer ${token}` },
-              }
+              `${apiUrl}/products/bulk-upload/status/${jobId}`
             );
 
             if (!statusRes.ok) return;
