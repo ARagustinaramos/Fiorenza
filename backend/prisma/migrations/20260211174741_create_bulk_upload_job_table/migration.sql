@@ -1,8 +1,13 @@
 -- CreateEnum
-CREATE TYPE "BulkUploadStatus" AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED');
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'BulkUploadStatus') THEN
+    CREATE TYPE "BulkUploadStatus" AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED');
+  END IF;
+END $$;
 
 -- CreateTable
-CREATE TABLE "BulkUploadJob" (
+CREATE TABLE IF NOT EXISTS "BulkUploadJob" (
     "id" TEXT NOT NULL,
     "status" "BulkUploadStatus" NOT NULL DEFAULT 'PENDING',
     "mode" TEXT NOT NULL,
@@ -24,4 +29,4 @@ CREATE TABLE "BulkUploadJob" (
 );
 
 -- CreateIndex
-CREATE INDEX "BulkUploadJob_status_idx" ON "BulkUploadJob"("status");
+CREATE INDEX IF NOT EXISTS "BulkUploadJob_status_idx" ON "BulkUploadJob"("status");
