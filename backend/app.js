@@ -31,8 +31,6 @@ const limiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Demasiadas peticiones desde esta IP, por favor intenta más tarde." }
 });
-app.use(limiter);
-
 const allowedOrigins = (process.env.CORS_ORIGINS || "")
   .split(",")
   .map((o) => o.trim())
@@ -57,6 +55,7 @@ app.use(
   })
 );
 app.options("*", cors());
+app.use(limiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
