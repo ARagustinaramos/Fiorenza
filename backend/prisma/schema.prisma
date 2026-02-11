@@ -75,7 +75,7 @@ model Perfil {
 
 model Brand {
   id     String  @id @default(uuid())
-  nombre String
+  nombre String  @unique
   activo Boolean @default(true)
 
   products Product[]
@@ -85,7 +85,7 @@ model Brand {
 
 model Family {
   id     String  @id @default(uuid())
-  nombre String
+  nombre String  @unique
   activo Boolean @default(true)
 
   products Product[]
