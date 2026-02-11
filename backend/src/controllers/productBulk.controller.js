@@ -104,17 +104,24 @@ const syncMetadata = async (items, brandCache, familyCache) => {
     const existing = await model.findMany({ where: { nombre: { in: names } } });
     existing.forEach((e) => cache.set(e.nombre, e));
 
-    // 2. Crear faltantes
+    // 2. Crear faltantes (sin upsert porque nombre no es unique)
     const missing = names.filter((n) => !cache.has(n));
     await Promise.all(
       missing.map(async (name) => {
-        // upsert o create con manejo de error por si otro proceso lo crea
-        const created = await model.upsert({
-          where: { nombre: name },
-          update: {},
-          create: { nombre: name },
-        });
-        cache.set(name, created);
+        // Evita error por falta de unique en "where"
+        const already = await model.findFirst({ where: { nombre: name } });
+        if (already) {
+          cache.set(name, already);
+          return;
+        }
+        try {
+          const created = await model.create({ data: { nombre: name } });
+          cache.set(name, created);
+        } catch {
+          // Si otra solicitud la creó en paralelo, volvemos a leer
+          const fallback = await model.findFirst({ where: { nombre: name } });
+          if (fallback) cache.set(name, fallback);
+        }
       })
     );
   };

@@ -84,11 +84,11 @@ app.use("/api/favorites", favoritesRoutes);
 app.use("/api/users", usersRoutes);
 
 // Rutas de test/admin
-app.use("/test", adminTestRoutes);
+app.use("/api/test", adminTestRoutes);
 
 app.use("/api/banners", bannerRoutes);
 
-app.use("/downloads", downloadsRoutes);
+app.use("/api/downloads", downloadsRoutes);
 
 // Manejo de rutas no encontradas (404)
 app.use((req, res) => {
