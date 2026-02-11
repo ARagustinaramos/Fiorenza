@@ -126,22 +126,21 @@ const syncMetadata = async (items, brandCache, familyCache) => {
     const existing = await model.findMany({ where: { nombre: { in: names } } });
     existing.forEach((e) => cache.set(e.nombre, e));
 
-    // 2. Crear faltantes (sin upsert porque nombre no es unique)
+    // 2. Crear faltantes (ahora con unique en nombre)
     const missing = names.filter((n) => !cache.has(n));
-    await runInBatches(missing, PARALLELISM, async (name) => {
-      const already = await model.findFirst({ where: { nombre: name } });
-      if (already) {
-        cache.set(name, already);
-        return;
-      }
-      try {
-        const created = await model.create({ data: { nombre: name } });
-        cache.set(name, created);
-      } catch {
-        const fallback = await model.findFirst({ where: { nombre: name } });
-        if (fallback) cache.set(name, fallback);
-      }
+    if (missing.length === 0) return;
+
+    // Crear en lote y evitar duplicados
+    await model.createMany({
+      data: missing.map((nombre) => ({ nombre })),
+      skipDuplicates: true,
     });
+
+    // Recargar los nuevos para el cache
+    const createdNow = await model.findMany({
+      where: { nombre: { in: missing } },
+    });
+    createdNow.forEach((e) => cache.set(e.nombre, e));
   };
 
   await Promise.all([
