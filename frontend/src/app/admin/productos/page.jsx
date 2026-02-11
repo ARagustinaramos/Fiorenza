@@ -350,12 +350,12 @@ export default function AdminProductos() {
                 className="hidden"
                 id="csv-create"
                 onChange={(e) => {
-                  setCsvFileReplace(e.target.files?.[0] || null);
+                  setCsvFileCreate(e.target.files?.[0] || null);
                 }}
               />
               <input
                 type="text"
-                value={csvFileReplace?.name || ""}
+                value={csvFileCreate?.name || ""}
                 readOnly
                 className="w-full px-4 py-3 border rounded-lg bg-gray-50"
               />
@@ -403,12 +403,12 @@ export default function AdminProductos() {
                 className="hidden"
                 id="csv-replace"
                 onChange={(e) => {
-                  setCsvFileCreate(e.target.files?.[0] || null);
+                  setCsvFileReplace(e.target.files?.[0] || null);
                 }}
               />
               <input
                 type="text"
-                value={csvFileCreate?.name || ""}
+                value={csvFileReplace?.name || ""}
                 readOnly
                 className="w-full px-4 py-3 border rounded-lg bg-gray-50"
               />
