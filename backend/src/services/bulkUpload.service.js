@@ -3,6 +3,19 @@ import path from "path";
 import prisma from "../config/prisma.js";
 
 const CHUNK_SIZE = Number(process.env.BULK_CHUNK_SIZE || 500);
+const PARALLELISM = Number(process.env.BULK_PARALLELISM || 20);
+
+const runInBatches = async (items, batchSize, handler) => {
+  for (let i = 0; i < items.length; i += batchSize) {
+    const slice = items.slice(i, i + batchSize);
+    const results = await Promise.all(slice.map(handler));
+    for (const r of results) {
+      if (r !== undefined) {
+        // allow caller to collect results if needed
+      }
+    }
+  }
+};
 
 const normalizeHeader = (text) =>
   text?.toString().toUpperCase().trim().replace(/\s+/g, " ");
@@ -107,22 +120,20 @@ const syncMetadata = async (items, brandCache, familyCache) => {
 
     // 2. Crear faltantes (sin upsert porque nombre no es unique)
     const missing = names.filter((n) => !cache.has(n));
-    await Promise.all(
-      missing.map(async (name) => {
-        const already = await model.findFirst({ where: { nombre: name } });
-        if (already) {
-          cache.set(name, already);
-          return;
-        }
-        try {
-          const created = await model.create({ data: { nombre: name } });
-          cache.set(name, created);
-        } catch {
-          const fallback = await model.findFirst({ where: { nombre: name } });
-          if (fallback) cache.set(name, fallback);
-        }
-      })
-    );
+    await runInBatches(missing, PARALLELISM, async (name) => {
+      const already = await model.findFirst({ where: { nombre: name } });
+      if (already) {
+        cache.set(name, already);
+        return;
+      }
+      try {
+        const created = await model.create({ data: { nombre: name } });
+        cache.set(name, created);
+      } catch {
+        const fallback = await model.findFirst({ where: { nombre: name } });
+        if (fallback) cache.set(name, fallback);
+      }
+    });
   };
 
   await Promise.all([
@@ -241,7 +252,7 @@ export const runBulkUpload = async ({ filePath, mode = "upsert" }) => {
         const productMap = new Map();
         existingProducts.forEach((p) => productMap.set(p.codigoInterno, p));
 
-        const promises = batch.map(async ({ item, rowNumber }) => {
+        const promises = batch.map(({ item, rowNumber }) => async () => {
           try {
             const validationErrors = [];
             if (!item.codigoInterno) validationErrors.push("MISSING_CODE");
@@ -315,7 +326,12 @@ export const runBulkUpload = async ({ filePath, mode = "upsert" }) => {
           }
         });
 
-        const results = await Promise.all(promises);
+        const results = [];
+        for (let i = 0; i < promises.length; i += PARALLELISM) {
+          const slice = promises.slice(i, i + PARALLELISM);
+          const settled = await Promise.all(slice.map((fn) => fn()));
+          results.push(...settled);
+        }
 
         results.forEach((r) => {
           if (r.status === "inserted") inserted++;
