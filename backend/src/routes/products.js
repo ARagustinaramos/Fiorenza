@@ -1,7 +1,8 @@
 import express from "express";
 import rateLimit from "express-rate-limit";
 import upload from "../middlewares/upload.js";
-import { bulkUpload } from "../controllers/productBulk.controller.js";
+import bulkUploadFile from "../middlewares/bulkUpload.js";
+import { bulkUpload, bulkUploadStatus } from "../controllers/productBulk.controller.js";
 import { bulkImagesUpload } from "../controllers/productImages.controller.js";
 import { auth } from "../middlewares/auth.middleware.js";
 import { requireRole } from "../middlewares/role.middleware.js";
@@ -35,8 +36,15 @@ router.post(
   bulkLimiter,
   auth,
   requireRole("ADMIN"),
-  upload.single("file"),
+  bulkUploadFile.single("file"),
   bulkUpload
+);
+
+router.get(
+  "/bulk-upload/status/:id",
+  auth,
+  requireRole("ADMIN"),
+  bulkUploadStatus
 );
 
 router.post(

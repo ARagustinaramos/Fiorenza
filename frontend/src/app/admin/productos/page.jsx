@@ -29,6 +29,7 @@ export default function AdminProductos() {
 
   const [imageFiles, setImageFiles] = useState([]);
   const fileInputRef = useRef(null);
+  const pollRef = useRef(null);
   const [uploadingExcel, setUploadingExcel] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [uploadResult, setUploadResult] = useState(null);
@@ -43,6 +44,9 @@ export default function AdminProductos() {
 
   useEffect(() => {
     setLoading(false);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, []);
 
   const handleExcelUpload = async (csvFile, mode) => {
@@ -82,39 +86,100 @@ export default function AdminProductos() {
 
       const data = await res.json();
 
-      let message = "";
-      if (mode === "delete") {
-        message = `Archivo procesado: ${data.inserted} productos borrados, ${data.skipped} omitidos`;
-      } else if (mode === "create") {
-        message = `Archivo procesado: ${data.inserted} productos creados, ${data.skipped} omitidos`;
-      } else if (mode === "update") {
-        message = `Archivo procesado: ${data.inserted} productos actualizados, ${data.skipped} omitidos`;
-      } else {
-        message = `Archivo procesado: ${data.inserted} productos insertados/actualizados, ${data.skipped} omitidos`;
-      }
+      const startPolling = (jobId) => {
+        if (pollRef.current) clearInterval(pollRef.current);
 
-      if (data.errorsCount > 0) {
-        message += ` (⚠️ ${data.errorsCount} errores encontrados)`;
+        const poll = async () => {
+          try {
+            const statusRes = await fetch(
+              `${apiUrl}/products/bulk-upload/status/${jobId}`,
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              }
+            );
+
+            if (!statusRes.ok) return;
+            const statusData = await statusRes.json();
+
+            if (statusData.status === "COMPLETED") {
+              let message = "";
+              if (mode === "delete") {
+                message = `Archivo procesado: ${statusData.inserted} productos borrados, ${statusData.skipped} omitidos`;
+              } else if (mode === "create") {
+                message = `Archivo procesado: ${statusData.inserted} productos creados, ${statusData.skipped} omitidos`;
+              } else if (mode === "update") {
+                message = `Archivo procesado: ${statusData.inserted} productos actualizados, ${statusData.skipped} omitidos`;
+              } else {
+                message = `Archivo procesado: ${statusData.inserted} productos insertados/actualizados, ${statusData.skipped} omitidos`;
+              }
+
+              if (statusData.errorsCount > 0) {
+                message += ` (⚠️ ${statusData.errorsCount} errores encontrados)`;
+              }
+
+              setUploadResult({
+                type: "success",
+                message,
+                details: statusData,
+              });
+
+              if (mode === "update") setCsvFileUpdate(null);
+              if (mode === "create") setCsvFileCreate(null);
+              if (mode === "replace") setCsvFileReplace(null);
+              if (mode === "delete") setCsvFileDelete(null);
+
+              const input = document.getElementById(`csv-${mode}`);
+              if (input) input.value = "";
+
+              setUploadingExcel(false);
+              clearInterval(pollRef.current);
+              pollRef.current = null;
+              return;
+            }
+
+            if (statusData.status === "FAILED") {
+              setUploadResult({
+                type: "error",
+                message:
+                  statusData.errorMessage ||
+                  "Ocurrió un error procesando el archivo",
+                details: statusData,
+              });
+              setUploadingExcel(false);
+              clearInterval(pollRef.current);
+              pollRef.current = null;
+              return;
+            }
+
+            setUploadResult({
+              type: "info",
+              message: "Procesando archivo... esto puede tardar varios minutos.",
+              details: statusData,
+            });
+          } catch (err) {
+            console.error("Error consultando estado:", err);
+          }
+        };
+
+        poll();
+        pollRef.current = setInterval(poll, 3000);
+      };
+
+      if (!data.jobId) {
+        throw new Error("No se pudo iniciar el procesamiento");
       }
 
       setUploadResult({
-        type: "success",
-        message: message,
-        details: data,
+        type: "info",
+        message: "Archivo recibido. Procesando en segundo plano...",
       });
 
-      // Limpiar solo el archivo del modo correspondiente
-      if (mode === "update") setCsvFileUpdate(null);
-      if (mode === "create") setCsvFileCreate(null);
-      if (mode === "replace") setCsvFileReplace(null);
-      if (mode === "delete") setCsvFileDelete(null);
-
-      document.getElementById(`csv-${mode}`).value = "";
+      startPolling(data.jobId);
     } catch (err) {
       console.error("Error subiendo archivo:", err);
       setError("Ocurrió un problema al procesar el archivo. Revisá que esté bien armado.");
     } finally {
-      setUploadingExcel(false);
+      // Se desactiva cuando finaliza el job
     }
   };
 
@@ -245,12 +310,18 @@ export default function AdminProductos() {
           <div
             className={`border rounded-lg p-4 mb-6 ${uploadResult.type === "success"
               ? "bg-green-50 border-green-200"
-              : "bg-red-50 border-red-200"
+              : uploadResult.type === "info"
+                ? "bg-blue-50 border-blue-200"
+                : "bg-red-50 border-red-200"
               }`}
           >
             <p
               className={
-                uploadResult.type === "success" ? "text-green-800" : "text-red-800"
+                uploadResult.type === "success"
+                  ? "text-green-800"
+                  : uploadResult.type === "info"
+                    ? "text-blue-800"
+                    : "text-red-800"
               }
             >
               {uploadResult.message}
