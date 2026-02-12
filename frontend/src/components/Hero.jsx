@@ -42,20 +42,12 @@ export function Hero() {
 }
 
   return (
-    <section className="relative h-[360px] sm:h-[420px] md:h-[600px] lg:h-[700px] flex items-center justify-center overflow-hidden">
-      <div
-        className="absolute inset-0 bg-cover bg-center transition-transform duration-[4000ms] hover:scale-110"
-        style={{
-          backgroundImage: `url(${heroImage})`,
-        }}
+    <section className="relative h-[360px] sm:h-[420px] md:h-[600px] lg:h-[700px] flex items-center justify-center overflow-hidden bg-white">
+      <img
+        src={heroImage}
+        alt="Hero"
+        className="w-full h-full object-contain"
       />
-
-      <div className="absolute inset-0 bg-black/30" />
-
-      <div className="relative z-10 text-center text-white px-4 max-w-3xl mx-auto">
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-3 sm:mb-4"></h1>
-        <p className="text-base sm:text-lg md:text-xl"></p>
-      </div>
     </section>
   );
 }
