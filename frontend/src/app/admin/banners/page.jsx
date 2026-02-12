@@ -88,7 +88,7 @@ export default function AdminBannersPage() {
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white border rounded-2xl p-6 max-w-xl mx-auto shadow-sm"
+        className="bg-white border rounded-2xl p-6 max-w-xl mx-auto"
       >
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
           <ImageIcon className="w-5 h-5" />
@@ -121,7 +121,7 @@ export default function AdminBannersPage() {
             />
             <button
               onClick={() => setPreviewHero(null)}
-              className="absolute top-2 right-2 bg-black/70 text-white rounded-full w-8 h-8"
+              className="absolute top-2 right-2 bg-white/90 text-gray-700 border border-gray-200 shadow-sm rounded-full w-8 h-8 hover:bg-white"
             >
               ✕
             </button>
@@ -137,7 +137,7 @@ export default function AdminBannersPage() {
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="bg-white border rounded-2xl p-6 max-w-xl mx-auto shadow-sm"
+        className="bg-white border rounded-2xl p-6 max-w-xl mx-auto"
       >
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
           <ImageIcon className="w-5 h-5" />
