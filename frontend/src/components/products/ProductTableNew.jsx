@@ -702,9 +702,9 @@ export function ProductTableNew() {
                       className="
                       bg-red-700 text-white
                       grid
-                      grid-cols-[40px_1fr_1fr_1fr_1fr_3fr_1fr]
+                      grid-cols-[40px_90px_120px_120px_120px_1fr_160px]
                       px-4 sm:px-6 py-3 sm:py-4
-                      font-semibold text-xs sm:text-sm
+                      font-semibold text-xs sm:text-sm text-left
                     "
                     >
                       <div></div>
@@ -712,8 +712,11 @@ export function ProductTableNew() {
                       <div>Original</div>
                       <div>Rubro</div>
                       <div>Marca</div>
-                      <div className="pl-7">Descripción</div>
-                      <div className="text-right">Precio mayorista</div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-5 h-5" />
+                        <span>Descripción</span>
+                      </div>
+                      <div className="text-right pr-2">Precio mayorista</div>
                     </div>
                     <div className="divide-y">
                       {skeletonRows.map((_, idx) => (
@@ -836,7 +839,7 @@ export function ProductTableNew() {
           grid
           grid-cols-[40px_90px_120px_120px_120px_1fr_160px]
           px-4 sm:px-6 py-3 sm:py-4
-          font-semibold text-xs sm:text-sm
+          font-semibold text-xs sm:text-sm text-left
         "
                     >
                       <div></div>
@@ -844,8 +847,11 @@ export function ProductTableNew() {
                       <div>Original</div>
                       <div>Rubro</div>
                       <div>Marca</div>
-                      <div>Descripción</div>
-                      <div className="text-right">Precio mayorista</div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-5 h-5" />
+                        <span>Descripción</span>
+                      </div>
+                      <div className="text-right pr-2">Precio mayorista</div>
                     </div>
 
                     <div className="divide-y">
