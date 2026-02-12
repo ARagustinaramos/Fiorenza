@@ -21,7 +21,7 @@ export function Hero() {
         const list = Array.isArray(data) ? data : [];
         const hero = list.find((b) => b.title === "hero");
 
-        if (hero?.imageUrl) {
+        if (hero && hero.imageUrl) {
           setHeroImage(hero.imageUrl);
         } else {
           setHeroImage(DEFAULT_IMAGE);
@@ -36,18 +36,15 @@ export function Hero() {
   }, [apiUrl]);
 
   if (!heroImage) {
-  return (
-    <section className="relative h-[360px] sm:h-[420px] md:h-[600px] lg:h-[700px] bg-gray-900" />
-  );
-}
+    return (
+      <section className="h-[360px] sm:h-[420px] md:h-[600px] lg:h-[700px] bg-gray-900" />
+    );
+  }
 
   return (
-    <section className="relative h-[360px] sm:h-[420px] md:h-[600px] lg:h-[700px] flex items-center justify-center overflow-hidden bg-white">
-      <img
-        src={heroImage}
-        alt="Hero"
-        className="w-full h-full object-cover"
-      />
-    </section>
+    <section
+      className="relative h-[360px] sm:h-[420px] md:h-[600px] lg:h-[700px] bg-cover bg-top bg-no-repeat"
+      style={{ backgroundImage: `url(${heroImage})` }}
+    />
   );
 }
