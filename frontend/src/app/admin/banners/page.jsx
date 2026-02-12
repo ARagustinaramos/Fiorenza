@@ -117,7 +117,7 @@ export default function AdminBannersPage() {
           <div className="relative">
             <img
               src={previewHero}
-              className="w-full h-56 object-cover rounded-xl border"
+              className="w-full h-56 object-contain rounded-xl border bg-white shadow-none"
             />
             <button
               onClick={() => setPreviewHero(null)}
@@ -168,7 +168,7 @@ export default function AdminBannersPage() {
           <div className="relative">
             <img
               src={previewBanner}
-              className="w-full h-48 object-cover rounded-xl border"
+              className="w-full h-48 object-contain rounded-xl border bg-white shadow-none"
             />
           </div>
         )}

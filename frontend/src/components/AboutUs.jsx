@@ -7,7 +7,7 @@ export function AboutUs() {
        
         <div className="w-full h-56 sm:h-72 md:h-[350px] overflow-hidden rounded-lg">
           <img
-            src="https://images.unsplash.com/photo-1765202665886-f786d88d3a0f?auto=format&fit=crop&w=1200&q=80"
+            src="/quienes-somos.png"
             alt="Fiorenza Automotores"
             className="w-full h-full object-cover"
           />
