@@ -712,7 +712,7 @@ export function ProductTableNew() {
                       <div>Original</div>
                       <div>Rubro</div>
                       <div>Marca</div>
-                      <div>Descripción</div>
+                      <div className="pl-7">Descripción</div>
                       <div className="text-right">Precio mayorista</div>
                     </div>
                     <div className="divide-y">
@@ -834,7 +834,7 @@ export function ProductTableNew() {
                       className="
           bg-red-700 text-white
           grid
-          grid-cols-[40px_1fr_1fr_1fr_1fr_3fr_1fr]
+          grid-cols-[40px_90px_120px_120px_120px_1fr_160px]
           px-4 sm:px-6 py-3 sm:py-4
           font-semibold text-xs sm:text-sm
         "
