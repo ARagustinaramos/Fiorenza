@@ -43,14 +43,10 @@ export function Hero() {
 
   return (
     <section className="relative h-[360px] sm:h-[420px] md:h-[600px] lg:h-[700px] flex items-center justify-center overflow-hidden bg-white">
-      <div
-        className="absolute inset-0 bg-center bg-cover blur-md scale-105"
-        style={{ backgroundImage: `url(${heroImage})` }}
-      />
       <img
         src={heroImage}
         alt="Hero"
-        className="relative z-10 w-full h-full object-contain"
+        className="w-full h-full object-cover"
       />
     </section>
   );
