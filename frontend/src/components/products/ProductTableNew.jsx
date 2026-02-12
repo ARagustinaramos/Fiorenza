@@ -34,6 +34,7 @@ export function ProductTableNew() {
   const [cartToast, setCartToast] = useState(null);
   const cartToastTimeoutRef = useRef(null);
   const [isPanelPinned, setIsPanelPinned] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   const [isMobile, setIsMobile] = useState(false);
   const [coeficienteVenta, setCoeficienteVenta] = useState(0);
@@ -333,12 +334,39 @@ export function ProductTableNew() {
               <h3 className="font-semibold mb-2">{hoveredProduct.descripcion}</h3>
 
             {hoveredProduct.images && hoveredProduct.images.length > 0 && (
-              <div className="mb-3 rounded-lg overflow-hidden border border-gray-200 h-52 flex items-center justify-center bg-gray-50">
-                <img
-                  src={hoveredProduct.images[0].url || hoveredProduct.images[0]}
-                  alt={hoveredProduct.descripcion}
-                  className="max-h-full max-w-full object-contain"
-                />
+              <div className="mb-3">
+                <div className="rounded-lg overflow-hidden border border-gray-200 h-52 flex items-center justify-center bg-gray-50">
+                  <img
+                    src={
+                      hoveredProduct.images[activeImageIndex]?.url ||
+                      hoveredProduct.images[activeImageIndex]
+                    }
+                    alt={hoveredProduct.descripcion}
+                    className="max-h-full max-w-full object-contain"
+                  />
+                </div>
+                {hoveredProduct.images.length > 1 && (
+                  <div className="mt-2 flex gap-2 overflow-x-auto">
+                    {hoveredProduct.images.map((img, idx) => (
+                      <button
+                        key={`${hoveredProduct.id}-thumb-${idx}`}
+                        onClick={() => setActiveImageIndex(idx)}
+                        className={`h-14 w-14 flex-shrink-0 rounded-md overflow-hidden border ${
+                          idx === activeImageIndex
+                            ? "border-red-500"
+                            : "border-gray-200"
+                        }`}
+                        title={`Imagen ${idx + 1}`}
+                      >
+                        <img
+                          src={img.url || img}
+                          alt={`${hoveredProduct.descripcion} ${idx + 1}`}
+                          className="h-full w-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
             )}
@@ -735,6 +763,7 @@ export function ProductTableNew() {
                       key={product.id}
                       onClick={() => {
                         setHoveredProduct(product);
+                        setActiveImageIndex(0);
                         setIsPanelPinned(true);
                       }}
                       className="bg-white rounded-lg border p-4 shadow-sm hover:bg-gray-50 transition cursor-pointer"
@@ -824,9 +853,10 @@ export function ProductTableNew() {
                         <div
                           key={product.id}
                           onClick={() => {
-                            setHoveredProduct(product);
-                            setIsPanelPinned(true);
-                          }}
+                        setHoveredProduct(product);
+                        setActiveImageIndex(0);
+                        setIsPanelPinned(true);
+                      }}
                           className="grid grid-cols-[40px_90px_120px_120px_120px_1fr_160px] px-4 sm:px-6 py-4 sm:py-5 hover:bg-gray-100 transition cursor-pointer text-xs sm:text-sm"
                         >
                           <button
