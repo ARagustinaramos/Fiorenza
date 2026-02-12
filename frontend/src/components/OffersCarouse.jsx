@@ -38,34 +38,15 @@ export function OffersCarousel() {
   };
 
   return (
-    <div className="w-full rounded-xl overflow-hidden shadow-lg relative group">
+    <div className="w-full rounded-xl overflow-hidden relative group">
       <Slider {...settings}>
         {offers.map((offer) => (
           <div key={offer.id} className="relative h-48 w-full outline-none">
             <img
               src={offer.imageUrl}
               alt={offer.title}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain bg-white"
             />
-
-            <div className="absolute inset-0 bg-gradient-to-r from-[#1E3A8A]/90 via-[#1E3A8A]/50 to-transparent flex flex-col justify-center px-4">
-              <h2 className="text-lg font-bold text-white mb-1 drop-shadow-md">
-                {offer.title}
-              </h2>
-
-              <p className="text-sm text-blue-100 font-medium mb-3">
-                {offer.subtitle}
-              </p>
-
-              {offer.link && (
-                <a
-                  href={offer.link}
-                  className="px-3 py-1 bg-[#0D6EFD] hover:bg-blue-600 text-white text-xs font-semibold rounded shadow-md w-fit"
-                >
-                  Ver Ofertas
-                </a>
-              )}
-            </div>
           </div>
         ))}
       </Slider>
