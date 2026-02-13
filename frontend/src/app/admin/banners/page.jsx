@@ -10,6 +10,7 @@ export default function AdminBannersPage() {
 
   const [previewBanner, setPreviewBanner] = useState(null);
   const [previewHero, setPreviewHero] = useState(null);
+  const [carouselBanners, setCarouselBanners] = useState([]);
 
   const apiUrl =
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
@@ -30,6 +31,22 @@ export default function AdminBannersPage() {
     };
 
     fetchHero();
+  }, [apiUrl]);
+
+  useEffect(() => {
+    const fetchCarouselBanners = async () => {
+      try {
+        const res = await fetch(`${apiUrl}/banners`, { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : [];
+        setCarouselBanners(list.filter((b) => b.title !== "hero"));
+      } catch (error) {
+        console.error("Error cargando banners:", error);
+      }
+    };
+
+    fetchCarouselBanners();
   }, [apiUrl]);
 
   const uploadHero = async (file) => {
@@ -78,7 +95,28 @@ export default function AdminBannersPage() {
     } catch (error) {
       alert("Error al guardar el banner");
     } finally {
+      try {
+        const res = await fetch(`${apiUrl}/banners`, { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          const list = Array.isArray(data) ? data : [];
+          setCarouselBanners(list.filter((b) => b.title !== "hero"));
+        }
+      } catch {
+        // ignore
+      }
       setLoadingBanner(false);
+    }
+  };
+
+  const deleteCarouselBanner = async (id) => {
+    try {
+      const res = await fetch(`${apiUrl}/banners/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Error al borrar banner");
+      setCarouselBanners((prev) => prev.filter((b) => b.id !== id));
+    } catch (error) {
+      alert("No se pudo borrar el banner");
+      console.error(error);
     }
   };
 
@@ -175,6 +213,35 @@ export default function AdminBannersPage() {
 
         {loadingBanner && (
           <p className="text-sm text-gray-500 mt-2">Subiendo banner...</p>
+        )}
+
+        {carouselBanners.length > 0 && (
+          <div className="mt-6">
+            <p className="text-sm font-semibold text-gray-700 mb-3">
+              Banners actuales
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {carouselBanners.map((banner) => (
+                <div
+                  key={banner.id}
+                  className="relative border rounded-lg overflow-hidden bg-white"
+                >
+                  <img
+                    src={banner.imageUrl}
+                    alt={banner.title || "Banner"}
+                    className="w-full h-24 object-cover"
+                  />
+                  <button
+                    onClick={() => deleteCarouselBanner(banner.id)}
+                    className="absolute top-1 right-1 bg-white/90 text-gray-700 border border-gray-200 rounded-full w-6 h-6 text-xs hover:bg-white"
+                    title="Eliminar banner"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </motion.div>
     </div>
