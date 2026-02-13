@@ -1,5 +1,5 @@
 import { Router } from "express";
-import upload from "../middlewares/upload.js";
+import upload from "../middlewares/downloadsUpload.js";
 
 import {
   uploadDownload,
