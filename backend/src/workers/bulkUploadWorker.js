@@ -33,7 +33,6 @@ const run = async () => {
           await prisma.bulkUploadJob.update({
             where: { id: jobId },
             data: {
-              status: progress.status,
               totalRows: progress.totalRows,
               inserted: progress.inserted,
               skipped: progress.skipped,
