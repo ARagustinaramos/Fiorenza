@@ -160,11 +160,39 @@ const loadWorkbookFromFile = async (filePath) => {
   return workbook;
 };
 
+const isTransientDbError = (err) => {
+  if (!err) return false;
+  const msg = (err.message || "").toLowerCase();
+  return (
+    msg.includes("can't reach database server") ||
+    msg.includes("max clients") ||
+    msg.includes("pool") ||
+    msg.includes("timed out") ||
+    msg.includes("p2024")
+  );
+};
+
+const withRetry = async (fn, retries = 3) => {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await fn();
+    } catch (err) {
+      attempt += 1;
+      if (!isTransientDbError(err) || attempt > retries) throw err;
+      const delay = Math.min(2000 * attempt, 8000);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+};
+
 export const runBulkUpload = async ({ filePath, mode = "upsert" }) => {
   if (mode === "replace") {
-    await prisma.product.updateMany({
+    await withRetry(() =>
+      prisma.product.updateMany({
       data: { activo: false },
-    });
+      })
+    );
   }
 
   const workbook = await loadWorkbookFromFile(filePath);
@@ -249,17 +277,26 @@ export const runBulkUpload = async ({ filePath, mode = "upsert" }) => {
           continue;
         }
 
-        await syncMetadata(batch.map((b) => b.item), brandCache, familyCache);
+        await withRetry(() =>
+          syncMetadata(batch.map((b) => b.item), brandCache, familyCache)
+        );
 
         const codigos = batch.map((b) => b.item.codigoInterno).filter(Boolean);
-        const existingProducts = await prisma.product.findMany({
-          where: { codigoInterno: { in: codigos } },
-        });
+        const existingProducts = await withRetry(() =>
+          prisma.product.findMany({
+            where: { codigoInterno: { in: codigos } },
+          })
+        );
 
         const productMap = new Map();
         existingProducts.forEach((p) => productMap.set(p.codigoInterno, p));
 
-        const promises = batch.map(({ item, rowNumber }) => async () => {
+        const toCreate = [];
+        const toUpdate = [];
+
+        const perRowErrors = [];
+
+        batch.forEach(({ item, rowNumber }) => {
           try {
             const validationErrors = [];
             if (!item.codigoInterno) validationErrors.push("MISSING_CODE");
@@ -291,59 +328,71 @@ export const runBulkUpload = async ({ filePath, mode = "upsert" }) => {
             };
 
             if (mode === "update") {
-              if (!existingProduct) return { status: "skipped" };
-              await prisma.product.update({
-                where: { id: existingProduct.id },
-                data: commonData,
-              });
-              return { status: "inserted" };
+              if (!existingProduct) {
+                perRowErrors.push({ status: "skipped" });
+                return;
+              }
+              toUpdate.push({ id: existingProduct.id, data: commonData });
+              return;
             }
 
             if (mode === "create") {
               if (existingProduct) {
                 if (!existingProduct.activo) {
-                  await prisma.product.update({
-                    where: { id: existingProduct.id },
-                    data: commonData,
-                  });
-                  return { status: "inserted" };
+                  toUpdate.push({ id: existingProduct.id, data: commonData });
+                  return;
                 }
-                return { status: "skipped" };
+                perRowErrors.push({ status: "skipped" });
+                return;
               }
-              await prisma.product.create({ data: commonData });
-              return { status: "inserted" };
+              toCreate.push(commonData);
+              return;
             }
 
             if (existingProduct) {
-              await prisma.product.update({
-                where: { id: existingProduct.id },
-                data: commonData,
-              });
+              toUpdate.push({ id: existingProduct.id, data: commonData });
             } else {
-              await prisma.product.create({ data: commonData });
+              toCreate.push(commonData);
             }
-            return { status: "inserted" };
+            return;
           } catch (err) {
-            return {
+            perRowErrors.push({
               status: "error",
               sheet: worksheet.name,
               row: rowNumber,
               error: err.message.split("|"),
-            };
+            });
           }
         });
 
-        const results = [];
-        for (let i = 0; i < promises.length; i += PARALLELISM) {
-          const slice = promises.slice(i, i + PARALLELISM);
-          const settled = await Promise.all(slice.map((fn) => fn()));
-          results.push(...settled);
+        if (toCreate.length > 0) {
+          const created = await withRetry(() =>
+            prisma.product.createMany({
+              data: toCreate,
+              skipDuplicates: true,
+            })
+          );
+          inserted += created.count;
         }
 
-        results.forEach((r) => {
-          if (r.status === "inserted") inserted++;
-          else if (r.status === "skipped") skipped++;
-          else if (r.status === "error") {
+        for (let i = 0; i < toUpdate.length; i += PARALLELISM) {
+          const slice = toUpdate.slice(i, i + PARALLELISM);
+          const settled = await Promise.all(
+            slice.map(({ id, data }) =>
+              withRetry(() =>
+                prisma.product.update({
+                  where: { id },
+                  data,
+                })
+              )
+            )
+          );
+          inserted += settled.length;
+        }
+
+        perRowErrors.forEach((r) => {
+          if (r.status === "skipped") skipped++;
+          if (r.status === "error") {
             skipped++;
             errors.push({ sheet: r.sheet, row: r.row, error: r.error });
           }
