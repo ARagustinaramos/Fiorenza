@@ -42,6 +42,21 @@ export default function AdminProductos() {
     "Columnas faltantes": "El archivo no tiene todas las columnas necesarias",
   };
 
+  const buildProgressMessage = (details) => {
+    if (!details) {
+      return "Procesando archivo... esto puede tardar varios minutos.";
+    }
+    const total = Number(details.totalRows || 0);
+    const inserted = Number(details.inserted || 0);
+    const skipped = Number(details.skipped || 0);
+    const processed = inserted + skipped;
+    if (!total) {
+      return "Procesando archivo... esto puede tardar varios minutos.";
+    }
+    const percent = Math.min(100, Math.round((processed / total) * 100));
+    return `Procesando archivo... ${processed}/${total} (${percent}%)`;
+  };
+
   useEffect(() => {
     setLoading(false);
     return () => {
@@ -150,7 +165,7 @@ export default function AdminProductos() {
 
             setUploadResult({
               type: "info",
-              message: "Procesando archivo... esto puede tardar varios minutos.",
+              message: buildProgressMessage(statusData),
               details: statusData,
             });
           } catch (err) {
@@ -159,7 +174,7 @@ export default function AdminProductos() {
         };
 
         poll();
-        pollRef.current = setInterval(poll, 15000);
+        pollRef.current = setInterval(poll, 30000);
       };
 
       if (!data.jobId) {
@@ -323,6 +338,14 @@ export default function AdminProductos() {
             >
               {uploadResult.message}
             </p>
+            {uploadResult.type === "info" && uploadResult.details && (
+              <div className="text-xs text-gray-600 mt-2">
+                <p>Estado: {uploadResult.details.status}</p>
+                <p>Total filas: {uploadResult.details.totalRows || 0}</p>
+                <p>Procesadas: {(uploadResult.details.inserted || 0) + (uploadResult.details.skipped || 0)}</p>
+                <p>Errores: {uploadResult.details.errorsCount || 0}</p>
+              </div>
+            )}
             {uploadResult.details?.errorsCount > 0 && (
               <div className="text-sm text-gray-600 mt-3 max-h-40 overflow-y-auto">
                 <p className="font-medium mb-2">Se encontraron {uploadResult.details.errorsCount} errores:</p>
