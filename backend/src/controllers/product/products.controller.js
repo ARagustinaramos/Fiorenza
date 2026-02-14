@@ -128,8 +128,8 @@ export const getProducts = async (req, res) => {
     const offset = (Number(page) - 1) * limitNum;
     const filters = [];
     const joins = [
-      Prisma.sql`JOIN "Brand" m ON m.id = p."marcaId"`,
-      Prisma.sql`JOIN "Family" f ON f.id = p."familiaId"`,
+      Prisma.sql`LEFT JOIN "Brand" m ON m.id = p."marcaId"`,
+      Prisma.sql`LEFT JOIN "Family" f ON f.id = p."familiaId"`,
     ];
 
     const includeFavorites = favorites === "true";
