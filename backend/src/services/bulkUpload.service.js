@@ -4,6 +4,7 @@ import prisma from "../config/prisma.js";
 
 const CHUNK_SIZE = Number(process.env.BULK_CHUNK_SIZE || 500);
 const PARALLELISM = Number(process.env.BULK_PARALLELISM || 20);
+const BATCH_DELAY_MS = Number(process.env.BULK_BATCH_DELAY_MS || 0);
 
 const runInBatches = async (items, batchSize, handler) => {
   for (let i = 0; i < items.length; i += batchSize) {
@@ -186,7 +187,7 @@ const withRetry = async (fn, retries = 3) => {
   }
 };
 
-export const runBulkUpload = async ({ filePath, mode = "upsert" }) => {
+export const runBulkUpload = async ({ filePath, mode = "upsert", onProgress }) => {
   if (mode === "replace") {
     await withRetry(() =>
       prisma.product.updateMany({
@@ -204,6 +205,22 @@ export const runBulkUpload = async ({ filePath, mode = "upsert" }) => {
 
   const brandCache = new Map();
   const familyCache = new Map();
+
+  let lastProgressAt = Date.now();
+
+  const notifyProgress = () => {
+    if (!onProgress) return;
+    const now = Date.now();
+    if (now - lastProgressAt < 5000) return;
+    lastProgressAt = now;
+    onProgress({
+      totalRows,
+      inserted,
+      skipped,
+      errorsCount: errors.length,
+      status: "PROCESSING",
+    });
+  };
 
   for (const worksheet of workbook.worksheets) {
     const headerRow = worksheet.getRow(1);
@@ -247,8 +264,8 @@ export const runBulkUpload = async ({ filePath, mode = "upsert" }) => {
         });
       }
 
-      if (batch.length === CHUNK_SIZE || i === worksheet.rowCount) {
-        if (batch.length === 0) continue;
+        if (batch.length === CHUNK_SIZE || i === worksheet.rowCount) {
+          if (batch.length === 0) continue;
 
         if (mode === "delete") {
           const validDeletes = [];
@@ -274,6 +291,10 @@ export const runBulkUpload = async ({ filePath, mode = "upsert" }) => {
           }
 
           batch = [];
+          notifyProgress();
+          if (BATCH_DELAY_MS > 0) {
+            await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
+          }
           continue;
         }
 
@@ -399,6 +420,10 @@ export const runBulkUpload = async ({ filePath, mode = "upsert" }) => {
         });
 
         batch = [];
+        notifyProgress();
+        if (BATCH_DELAY_MS > 0) {
+          await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
+        }
       }
     }
   }

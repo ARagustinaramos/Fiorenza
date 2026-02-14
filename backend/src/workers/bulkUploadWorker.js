@@ -25,7 +25,24 @@ const run = async () => {
       data: { status: "PROCESSING", startedAt: new Date() },
     });
 
-    const result = await runBulkUpload({ filePath, mode });
+    const result = await runBulkUpload({
+      filePath,
+      mode,
+      onProgress: async (progress) => {
+        try {
+          await prisma.bulkUploadJob.update({
+            where: { id: jobId },
+            data: {
+              status: progress.status,
+              totalRows: progress.totalRows,
+              inserted: progress.inserted,
+              skipped: progress.skipped,
+              errorsCount: progress.errorsCount,
+            },
+          });
+        } catch {}
+      },
+    });
 
     await prisma.bulkUploadJob.update({
       where: { id: jobId },
