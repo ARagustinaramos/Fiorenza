@@ -119,13 +119,14 @@ export const getProducts = async (req, res) => {
       oferta,
       novedad,
       favorites,
+      includeInactive,
       page = 1,
       limit = 20,
     } = req.query;
 
     const limitNum = Number(limit);
     const offset = (Number(page) - 1) * limitNum;
-    const filters = [Prisma.sql`p.activo = true`];
+    const filters = [];
     const joins = [
       Prisma.sql`JOIN "Brand" m ON m.id = p."marcaId"`,
       Prisma.sql`JOIN "Family" f ON f.id = p."familiaId"`,
@@ -153,6 +154,12 @@ export const getProducts = async (req, res) => {
     const safeMarca = escapeLike(marca);
     const safeFamilia = escapeLike(familia);
     const safeRubro = escapeLike(rubro);
+
+    const isAdmin = req.user?.rol === "ADMIN";
+    const allowInactive = includeInactive === "true" && isAdmin;
+    if (!allowInactive) {
+      filters.push(Prisma.sql`p.activo = true`);
+    }
 
 
     if (marca) {
