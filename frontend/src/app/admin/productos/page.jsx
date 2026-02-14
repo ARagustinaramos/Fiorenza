@@ -310,6 +310,11 @@ export default function AdminProductos() {
     <div className="flex min-h-screen bg-gray-50">
       <main className="flex-1 p-8">
         <h1 className="text-3xl font-bold mb-8">Actualizar productos</h1>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <p className="text-sm text-blue-800">
+            Recordá que para cualquier modo podés usar archivos Excel (.xlsx/.xls) o CSV. Para archivos grandes, recomendamos CSV por mayor velocidad.
+          </p>
+        </div>
 
         {/* Mensajes de éxito/error */}
         {error && (
