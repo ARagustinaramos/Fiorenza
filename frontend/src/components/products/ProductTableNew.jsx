@@ -124,12 +124,28 @@ export function ProductTableNew() {
 
   const toggleFavorite = async (productId, e) => {
     e?.stopPropagation();
+    const wasFavorite = favoritesIds.has(productId);
 
     try {
       const token = localStorage.getItem("token");
       if (!token) {
         router.push("/login");
         return;
+      }
+
+      // Optimistic update
+      setFavoritesIds((prev) => {
+        const next = new Set(prev);
+        if (wasFavorite) {
+          next.delete(productId);
+        } else {
+          next.add(productId);
+        }
+        return next;
+      });
+
+      if (showFavorites && wasFavorite) {
+        setProducts((prev) => prev.filter((p) => p.id !== productId));
       }
 
       const apiUrl =
@@ -146,14 +162,11 @@ export function ProductTableNew() {
       if (res.ok) {
         const { isFavorite } = await res.json();
 
-        // Actualizar estado local
+        // Sync local state in case server differs
         setFavoritesIds((prev) => {
           const newSet = new Set(prev);
-          if (isFavorite) {
-            newSet.add(productId);
-          } else {
-            newSet.delete(productId);
-          }
+          if (isFavorite) newSet.add(productId);
+          else newSet.delete(productId);
           return newSet;
         });
 
@@ -162,10 +175,30 @@ export function ProductTableNew() {
         const error = await res.json();
         console.error("Error al cambiar favorito:", error);
         alert("No se pudo actualizar el favorito");
+        // Revert optimistic update
+        setFavoritesIds((prev) => {
+          const next = new Set(prev);
+          if (wasFavorite) next.add(productId);
+          else next.delete(productId);
+          return next;
+        });
+        if (showFavorites && wasFavorite) {
+          await fetchProducts();
+        }
       }
     } catch (error) {
       console.error("Error al cambiar favorito:", error);
       alert("No se pudo actualizar el favorito");
+      // Revert optimistic update
+      setFavoritesIds((prev) => {
+        const next = new Set(prev);
+        if (wasFavorite) next.add(productId);
+        else next.delete(productId);
+        return next;
+      });
+      if (showFavorites && wasFavorite) {
+        await fetchProducts();
+      }
     }
   };
 
@@ -239,7 +272,6 @@ export function ProductTableNew() {
     showOfertas,
     showNovedades,
     showFavorites,
-    favorites,
   ]);
 
   useEffect(() => {
