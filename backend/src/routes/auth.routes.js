@@ -10,7 +10,7 @@ const authLimiter = rateLimit({
   max: Number(process.env.AUTH_RATE_LIMIT_MAX || 20),
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "Demasiados intentos, por favor intenta mÃ¡s tarde." },
+  message: { error: "Demasiados intentos, por favor intenta más tarde." },
 });
 
 router.post("/register", authLimiter, register);

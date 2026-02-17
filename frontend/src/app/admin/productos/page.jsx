@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { Upload, Edit } from "lucide-react";
@@ -36,10 +36,10 @@ export default function AdminProductos() {
   const [uploadResult, setUploadResult] = useState(null);
 
   const friendlyErrors = {
-    "MISSING_CODE": "Falta el cÃ³digo interno del producto",
-    "descripcion vacÃ­a": "Falta la descripciÃ³n del producto",
-    "precio invÃ¡lido": "El precio estÃ¡ vacÃ­o o es incorrecto",
-    "Archivo requerido": "No se seleccionÃ³ ningÃºn archivo",
+    "MISSING_CODE": "Falta el código interno del producto",
+    "descripcion vacía": "Falta la descripción del producto",
+    "precio inválido": "El precio está vacío o es incorrecto",
+    "Archivo requerido": "No se seleccionó ningún archivo",
     "Columnas faltantes": "El archivo no tiene todas las columnas necesarias",
     "RAR_NOT_SUPPORTED_USE_ZIP": "RAR no esta soportado. Usa un archivo .zip",
     "INVALID_ARCHIVE_FORMAT_USE_ZIP": "Formato invalido. Solo se admite ZIP para archivos comprimidos",
@@ -193,7 +193,7 @@ export default function AdminProductos() {
       startPolling(data.jobId);
     } catch (err) {
       console.error("Error subiendo archivo:", err);
-      setError("OcurriÃ³ un problema al procesar el archivo. RevisÃ¡ que estÃ© bien armado.");
+      setError("Ocurrió un problema al procesar el archivo. Revisá que esté bien armado.");
     } finally {
       // Se desactiva cuando finaliza el job
     }
@@ -235,7 +235,7 @@ export default function AdminProductos() {
       });
 
       if (!res.ok) {
-        let errorMessage = "Error al subir las imÃ¡genes";
+        let errorMessage = "Error al subir las imágenes";
 
         try {
           const errorData = await res.json();
@@ -261,7 +261,7 @@ export default function AdminProductos() {
         fileInputRef.current.value = "";
       }
     } catch (err) {
-      console.error("Error subiendo imÃ¡genes:", err);
+      console.error("Error subiendo imágenes:", err);
       setError(friendlyErrors[err.message] || err.message);
     } finally {
       setUploadingImages(false);
@@ -321,7 +321,7 @@ export default function AdminProductos() {
         <h1 className="text-3xl font-bold mb-8">Actualizar productos</h1>
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
           <p className="text-sm text-blue-800">
-            RecordÃ¡ que para cualquier modo podÃ©s usar archivos Excel (.xlsx/.xls) o CSV. Para archivos grandes, recomendamos CSV por mayor velocidad.
+            Recordá que para cualquier modo podés usar archivos Excel (.xlsx/.xls) o CSV. Para archivos grandes, recomendamos CSV por mayor velocidad.
           </p>
         </div>
 
@@ -371,7 +371,7 @@ export default function AdminProductos() {
                     </li>
                   ))}
                   {uploadResult.details.errorsCount > 10 && (
-                    <li className="text-xs font-medium">... y {uploadResult.details.errorsCount - 10} errores mÃ¡s</li>
+                    <li className="text-xs font-medium">... y {uploadResult.details.errorsCount - 10} errores más</li>
                   )}
                 </ul>
               </div>
@@ -494,10 +494,10 @@ export default function AdminProductos() {
         </div>
         <div className="bg-white rounded-lg shadow-sm border border-yellow-300 p-6 mb-6">
           <h2 className="text-lg font-semibold mb-2 text-yellow-700">
-            Reemplazar TODO el catÃ¡logo (recomendado)
+            Reemplazar TODO el catálogo (recomendado)
           </h2>
           <p className="text-sm text-gray-600 mb-4">
-            Desactiva todo el catÃ¡logo actual y carga el Excel completo nuevamente.
+            Desactiva todo el catálogo actual y carga el Excel completo nuevamente.
           </p>
 
           <div className="flex gap-4 items-end">
@@ -530,7 +530,7 @@ export default function AdminProductos() {
             {csvFileReplace && (
               <button
                 onClick={() => {
-                  if (!confirm("Esto va a desactivar todo el catÃ¡logo actual. Â¿Seguro?")) return;
+                  if (!confirm("Esto va a desactivar todo el catálogo actual. ¿Seguro?")) return;
                   handleExcelUpload(csvFileReplace, "replace");
                 }}
                 disabled={uploadingExcel}
@@ -597,10 +597,10 @@ export default function AdminProductos() {
         </div>
 
 
-        {/* Subir imÃ¡genes */}
+        {/* Subir imágenes */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
           <h2 className="text-lg font-semibold mb-4">
-            Subir imÃ¡genes de productos
+            Subir imágenes de productos
           </h2>
 
           <div className="flex gap-4 items-end">
@@ -617,7 +617,18 @@ export default function AdminProductos() {
                 style={{ display: "none" }}
                 onChange={(e) => {
                   const files = Array.from(e.target.files || []);
-                  const zip = files.find((file) => file.name.toLowerCase().endsWith(".zip")) || null;
+                  const zipMimeTypes = new Set([
+                    "application/zip",
+                    "application/x-zip-compressed",
+                    "multipart/x-zip",
+                    "application/octet-stream",
+                  ]);
+                  const zip =
+                    files.find((file) => {
+                      const name = (file.name || "").toLowerCase();
+                      const type = (file.type || "").toLowerCase();
+                      return zipMimeTypes.has(type) || name.endsWith(".zip") || (files.length === 1 && !type.startsWith("image/"));
+                    }) || null;
 
                   if (zip) {
                     setImagesZipFile(zip);
@@ -679,4 +690,3 @@ export default function AdminProductos() {
     </div>
   );
 }  
-

@@ -67,7 +67,7 @@ export const validateProductInput = (data, isUpdate = false) => {
   if (!isEmpty(data.precioMayoristaSinIva)) {
     const parsed = parseNumber(data.precioMayoristaSinIva);
     if (parsed === null || parsed < 0) {
-      errors.push("precioMayoristaSinIva invÃ¡lido");
+      errors.push("precioMayoristaSinIva inválido");
     }
   }
 
@@ -79,9 +79,9 @@ export const validateProductInput = (data, isUpdate = false) => {
     }
   }
 
-  // ImÃ¡genes
+  // Imágenes
   if (!isEmpty(data.imagenes) && !Array.isArray(data.imagenes)) {
-    errors.push("imagenes debe ser un array");
+    errors.push("imágenes debe ser un array");
   }
 
   return errors;
