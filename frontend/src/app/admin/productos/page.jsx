@@ -28,6 +28,7 @@ export default function AdminProductos() {
   const [csvFileDelete, setCsvFileDelete] = useState(null);
 
   const [imageFiles, setImageFiles] = useState([]);
+  const [imagesZipFile, setImagesZipFile] = useState(null);
   const fileInputRef = useRef(null);
   const pollRef = useRef(null);
   const [uploadingExcel, setUploadingExcel] = useState(false);
@@ -40,6 +41,9 @@ export default function AdminProductos() {
     "precio inválido": "El precio está vacío o es incorrecto",
     "Archivo requerido": "No se seleccionó ningún archivo",
     "Columnas faltantes": "El archivo no tiene todas las columnas necesarias",
+    "RAR_NOT_SUPPORTED_USE_ZIP": "RAR no esta soportado. Usa un archivo .zip",
+    "INVALID_ARCHIVE_FORMAT_USE_ZIP": "Formato invalido. Solo se admite ZIP para archivos comprimidos",
+    "INVALID_IMAGE_FILE": "Uno o mas archivos no son imagenes validas",
   };
 
   const buildProgressMessage = (details) => {
@@ -196,8 +200,8 @@ export default function AdminProductos() {
   };
 
   const handleImagesUpload = async () => {
-    if (imageFiles.length === 0) {
-      setError("Por favor selecciona al menos una imagen");
+    if (imageFiles.length === 0 && !imagesZipFile) {
+      setError("Selecciona imagenes o un archivo ZIP");
       return;
     }
 
@@ -214,9 +218,13 @@ export default function AdminProductos() {
       }
 
       const formData = new FormData();
-      imageFiles.forEach((file) => {
-        formData.append("images", file);
-      });
+      if (imagesZipFile) {
+        formData.append("archive", imagesZipFile);
+      } else {
+        imageFiles.forEach((file) => {
+          formData.append("images", file);
+        });
+      }
 
       const res = await fetch(`${apiUrl}/products/bulk-images`, {
         method: "POST",
@@ -243,17 +251,18 @@ export default function AdminProductos() {
       const data = await res.json();
       setUploadResult({
         type: "success",
-        message: `${data.uploaded || imageFiles.length} imágenes subidas exitosamente`,
+        message: `${data.uploaded || imageFiles.length} imagen(es) procesada(s) exitosamente`,
         details: data,
       });
 
       setImageFiles([]);
+      setImagesZipFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
     } catch (err) {
       console.error("Error subiendo imágenes:", err);
-      setError(err.message);
+      setError(friendlyErrors[err.message] || err.message);
     } finally {
       setUploadingImages(false);
     }
@@ -597,28 +606,42 @@ export default function AdminProductos() {
           <div className="flex gap-4 items-end">
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Imágenes (múltiples archivos permitidos)
+                Imagenes sueltas o ZIP (.zip)
               </label>
               <input
                 type="file"
                 multiple
                 webkitdirectory=""
                 directory=""
-                accept="image/*"
+                accept="image/*,.zip,application/zip,application/x-zip-compressed"
                 id="images-upload"
                 ref={fileInputRef}
                 style={{ display: "none" }}
-                onChange={(e) => setImageFiles(Array.from(e.target.files || []))}
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  const zip = files.find((file) => file.name.toLowerCase().endsWith(".zip")) || null;
+
+                  if (zip) {
+                    setImagesZipFile(zip);
+                    setImageFiles([]);
+                    return;
+                  }
+
+                  setImagesZipFile(null);
+                  setImageFiles(files);
+                }}
               />
 
               <input
                 type="text"
                 value={
-                  imageFiles.length > 0
+                  imagesZipFile
+                    ? `ZIP: ${imagesZipFile.name}`
+                    : imageFiles.length > 0
                     ? `${imageFiles.length} archivo(s) seleccionado(s)`
                     : ""
                 }
-                placeholder="Seleccionar imágenes..."
+                placeholder="Seleccionar imagenes o ZIP..."
                 readOnly
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50"
               />
@@ -632,7 +655,7 @@ export default function AdminProductos() {
                 <Upload className="w-4 h-4" />
                 Seleccionar
               </label>
-              {imageFiles.length > 0 && (
+              {(imageFiles.length > 0 || imagesZipFile) && (
                 <button
                   onClick={handleImagesUpload}
                   disabled={uploadingImages}
@@ -644,7 +667,7 @@ export default function AdminProductos() {
                       Subiendo...
                     </div>
                   ) : (
-                    `Subir ${imageFiles.length} imagen(es)`
+                    imagesZipFile ? "Subir ZIP" : `Subir ${imageFiles.length} imagen(es)`
                   )}
 
                 </button>
