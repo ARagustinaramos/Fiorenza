@@ -28,7 +28,7 @@ const bulkLimiter = rateLimit({
   max: Number(process.env.BULK_RATE_LIMIT_MAX || 10),
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "Demasiadas cargas en poco tiempo, por favor intenta mÃ¡s tarde." },
+  message: { error: "Demasiadas cargas en poco tiempo, por favor intenta más tarde." },
 });
 
 router.post(
@@ -53,6 +53,8 @@ router.post(
   upload.fields([
     { name: "images", maxCount: Number(process.env.BULK_IMAGES_MAX_FILES || 200) },
     { name: "archive", maxCount: 1 },
+    { name: "zip", maxCount: 1 },
+    { name: "file", maxCount: 1 },
   ]),
   bulkImagesUpload
 );

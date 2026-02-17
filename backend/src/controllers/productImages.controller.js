@@ -73,7 +73,7 @@ async function buildFilesFromZip(zipBuffer) {
 export const bulkImagesUpload = async (req, res) => {
   try {
     const imageFiles = Array.isArray(req.files?.images) ? req.files.images : [];
-    const archive = req.files?.archive?.[0] || null;
+    const archive = req.files?.archive?.[0] || req.files?.zip?.[0] || req.files?.file?.[0] || null;
 
     if (!imageFiles.length && !archive) {
       return res.status(400).json({ error: "No se recibieron imagenes ni ZIP" });
@@ -86,10 +86,11 @@ export const bulkImagesUpload = async (req, res) => {
     }));
 
     if (archive) {
-      if (path.extname(archive.originalname).toLowerCase() !== ".zip") {
+      try {
+        filesToProcess = await buildFilesFromZip(archive.buffer);
+      } catch {
         return res.status(400).json({ error: "Formato no soportado. Usa ZIP" });
       }
-      filesToProcess = await buildFilesFromZip(archive.buffer);
     }
 
     filesToProcess = filesToProcess.filter((file) => file.parsed?.productCode);

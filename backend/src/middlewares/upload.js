@@ -5,6 +5,7 @@ const maxFileSizeMb = Number(process.env.UPLOAD_MAX_MB || 50);
 const maxFileSize = maxFileSizeMb * 1024 * 1024;
 
 const imageMimeRegex = /^image\//i;
+const archiveFieldNames = new Set(["archive", "zip", "file"]);
 const zipMimeTypes = new Set([
   "application/zip",
   "application/x-zip-compressed",
@@ -25,11 +26,11 @@ const upload = multer({
       return cb(new Error("INVALID_IMAGE_FILE"));
     }
 
-    if (file.fieldname === "archive") {
+    if (archiveFieldNames.has(file.fieldname)) {
       if (ext === ".rar") {
         return cb(new Error("RAR_NOT_SUPPORTED_USE_ZIP"));
       }
-      if (ext === ".zip" && (zipMimeTypes.has(file.mimetype) || file.mimetype === "")) {
+      if (zipMimeTypes.has(file.mimetype) || file.mimetype === "" || ext === ".zip") {
         return cb(null, true);
       }
       return cb(new Error("INVALID_ARCHIVE_FORMAT_USE_ZIP"));
