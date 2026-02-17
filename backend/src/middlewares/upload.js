@@ -5,7 +5,7 @@ const maxFileSizeMb = Number(process.env.UPLOAD_MAX_MB || 50);
 const maxFileSize = maxFileSizeMb * 1024 * 1024;
 
 const imageMimeRegex = /^image\//i;
-const archiveFieldNames = new Set(["archive", "zip", "file"]);
+const archiveFieldNames = new Set(["archive", "archive[]", "zip", "zip[]", "file", "file[]"]);
 const zipMimeTypes = new Set([
   "application/zip",
   "application/x-zip-compressed",
@@ -19,7 +19,7 @@ const upload = multer({
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname || "").toLowerCase();
 
-    if (file.fieldname === "images") {
+    if (file.fieldname === "images" || file.fieldname === "images[]") {
       if (imageMimeRegex.test(file.mimetype)) {
         return cb(null, true);
       }
