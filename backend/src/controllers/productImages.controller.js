@@ -72,8 +72,8 @@ async function buildFilesFromZip(zipBuffer) {
 
 export const bulkImagesUpload = async (req, res) => {
   try {
-    const imageFiles = Array.isArray(req.files?.images) ? req.files.images : [];
-    const archive = req.files?.archive?.[0] || req.files?.zip?.[0] || req.files?.file?.[0] || null;
+    const imageFiles = Array.isArray(req.files?.images) ? req.files.images : Array.isArray(req.files?.["images[]"]) ? req.files["images[]"] : [];
+    const archive = req.files?.archive?.[0] || req.files?.["archive[]"]?.[0] || req.files?.zip?.[0] || req.files?.["zip[]"]?.[0] || req.files?.file?.[0] || req.files?.["file[]"]?.[0] || null;
 
     if (!imageFiles.length && !archive) {
       return res.status(400).json({ error: "No se recibieron imagenes ni ZIP" });
