@@ -4,14 +4,12 @@ import Link from "next/link";
 import { ShoppingCart, User, Shield } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSelector, useDispatch } from "react-redux";
-import { clearCart } from "../../store/slices/cartSlice";
+import { useSelector } from "react-redux";
 import { Modal } from "./ui/Modal";
 import { LoginForm } from "./auth/LoginForm";
 import { useAuth } from "../context/AuthContext";
 
 export function Navbar() {
-  const dispatch = useDispatch();
   const { user, logout } = useAuth();
   const router = useRouter();
   const [openLogin, setOpenLogin] = useState(false);
@@ -109,7 +107,6 @@ export function Navbar() {
 
               <button
                 onClick={() => {
-                  dispatch(clearCart());
                   logout();
                   router.push("/");
                 }}
