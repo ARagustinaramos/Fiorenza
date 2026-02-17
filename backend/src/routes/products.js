@@ -50,7 +50,10 @@ router.post(
   bulkLimiter,
   auth,
   requireRole("ADMIN"),
-  upload.array("images", 50),
+  upload.fields([
+    { name: "images", maxCount: Number(process.env.BULK_IMAGES_MAX_FILES || 200) },
+    { name: "archive", maxCount: 1 },
+  ]),
   bulkImagesUpload
 );
 

@@ -31,7 +31,8 @@
     "nodemailer": "^7.0.13",
     "prisma": "^6.19.1",
     "resend": "^6.7.0",
-    "streamifier": "^0.1.1"
+    "streamifier": "^0.1.1",
+    "unzipper": "^0.12.3"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
