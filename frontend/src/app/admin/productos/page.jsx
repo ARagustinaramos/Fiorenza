@@ -30,7 +30,6 @@ export default function AdminProductos() {
   const [imageFiles, setImageFiles] = useState([]);
   const [imagesZipFile, setImagesZipFile] = useState(null);
   const fileInputRef = useRef(null);
-  const folderInputRef = useRef(null);
   const pollRef = useRef(null);
   const [uploadingExcel, setUploadingExcel] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
@@ -445,7 +444,8 @@ export default function AdminProductos() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
           <h2 className="text-lg font-semibold mb-2">Subir productos nuevos</h2>
           <p className="text-sm text-gray-600 mb-4">
-            Crea productos que no existen aÃºn. Si el cÃ³digo ya existe, se ignora.
+            Se crearán los productos que no existan. Si el código ya existe, se omitirá.
+
           </p>
 
           <div className="flex gap-4 items-end">
@@ -607,7 +607,7 @@ export default function AdminProductos() {
           <div className="flex gap-4 items-end">
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Imagenes sueltas, carpeta o ZIP (.zip)
+                Imagenes sueltas o ZIP (.zip)
               </label>
               <input
                 type="file"
@@ -643,32 +643,10 @@ export default function AdminProductos() {
               />
 
               <input
-                type="file"
-                multiple
-                webkitdirectory=""
-                directory=""
-                accept="image/*"
-                id="images-folder-upload"
-                ref={folderInputRef}
-                style={{ display: "none" }}
-                onChange={(e) => {
-                  const files = Array.from(e.target.files || []);
-                  const imageOnly = files.filter((file) =>
-                    (file.type || "").toLowerCase().startsWith("image/")
-                  );
-
-                  setImagesZipFile(null);
-                  setImageFiles(imageOnly);
-                }}
-              />
-
-              <input
                 type="text"
                 value={
                   imagesZipFile
                     ? `ZIP: ${imagesZipFile.name}`
-                    : imageFiles.length > 0 && imageFiles[0]?.webkitRelativePath
-                    ? `Carpeta: ${imageFiles[0].webkitRelativePath.split("/")[0]} (${imageFiles.length} imagenes)`
                     : imageFiles.length > 0
                     ? `${imageFiles.length} archivo(s) seleccionado(s)`
                     : ""
@@ -685,14 +663,7 @@ export default function AdminProductos() {
                 className="px-6 py-3 bg-[#0D6EFD] text-white rounded-lg hover:bg-[#0b5ed7] transition flex items-center gap-2 cursor-pointer"
               >
                 <Upload className="w-4 h-4" />
-                Seleccionar archivo
-              </label>
-              <label
-                htmlFor="images-folder-upload"
-                className="px-6 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition flex items-center gap-2 cursor-pointer"
-              >
-                <Upload className="w-4 h-4" />
-                Seleccionar carpeta
+                Seleccionar
               </label>
               {(imageFiles.length > 0 || imagesZipFile) && (
                 <button

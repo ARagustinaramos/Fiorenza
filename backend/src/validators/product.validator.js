@@ -59,7 +59,7 @@ export const validateProductInput = (data, isUpdate = false) => {
   if (!isEmpty(data.precioConIva)) {
     const parsed = parseNumber(data.precioConIva);
     if (parsed === null || parsed <= 0) {
-      errors.push("precioConIva debe ser un nÃºmero mayor a 0");
+      errors.push("precioConIva debe ser un número mayor a 0");
     }
   }
 
