@@ -607,7 +607,7 @@ export default function AdminProductos() {
           <div className="flex gap-4 items-end">
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Imagenes sueltas o ZIP (.zip)
+                Imagenes sueltas, carpeta o ZIP (.zip)
               </label>
               <input
                 type="file"
