@@ -250,9 +250,14 @@ export default function AdminProductos() {
 
 
       const data = await res.json();
+      const uploadedCount = Number(data.uploaded || imageFiles.length || 0);
+      const errorsCount = Number(data.errorsCount || 0);
       setUploadResult({
-        type: "success",
-        message: `${data.uploaded || imageFiles.length} imagen(es) procesada(s) exitosamente`,
+        type: errorsCount > 0 ? "info" : "success",
+        message:
+          errorsCount > 0
+            ? `${uploadedCount} imagen(es) procesada(s), con ${errorsCount} error(es)`
+            : `${uploadedCount} imagen(es) procesada(s) exitosamente`,
         details: data,
       });
 
@@ -260,6 +265,9 @@ export default function AdminProductos() {
       setImagesZipFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
+      }
+      if (folderInputRef.current) {
+        folderInputRef.current.value = "";
       }
     } catch (err) {
       console.error("Error subiendo imágenes:", err);
@@ -367,8 +375,17 @@ export default function AdminProductos() {
                 <ul className="list-disc list-inside space-y-1">
                   {uploadResult.details.errors?.slice(0, 10).map((err, idx) => (
                     <li key={idx} className="text-xs">
-                      <span className="font-medium">Fila {err.row}:</span>{" "}
-                      {formatErrorMessage(err.error)}
+                      {err.file ? (
+                        <>
+                          <span className="font-medium">Archivo {err.file}:</span>{" "}
+                          {formatErrorMessage(err.error)}
+                        </>
+                      ) : (
+                        <>
+                          <span className="font-medium">Fila {err.row}:</span>{" "}
+                          {formatErrorMessage(err.error)}
+                        </>
+                      )}
                     </li>
                   ))}
                   {uploadResult.details.errorsCount > 10 && (
