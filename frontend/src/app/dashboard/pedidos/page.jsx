@@ -15,6 +15,7 @@ export default function Pedidos() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
   const getProductsPath = () => {
     const userRole = user?.rol?.toUpperCase();
@@ -24,15 +25,11 @@ export default function Pedidos() {
     return "/";
   };
 
-  useEffect(() => {
-    fetchOrders();
-    const interval = setInterval(fetchOrders, 10000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchOrders = async () => {
+  const fetchOrders = async ({ silent = false } = {}) => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       setError(null);
 
       const token = localStorage.getItem("token");
@@ -59,13 +56,32 @@ export default function Pedidos() {
 
       const data = await res.json();
       setOrders(Array.isArray(data) ? data : []);
+      setHasLoadedOnce(true);
     } catch (err) {
       console.error("Error fetching orders:", err);
-      setError("No se pudieron cargar los pedidos");
+      if (!silent) {
+        setError("No se pudieron cargar los pedidos");
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  useEffect(() => {
+    if (selectedOrder) return;
+
+    const interval = setInterval(() => {
+      fetchOrders({ silent: true });
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [selectedOrder]);
 
   const formatDate = (dateString) => {
     if (!dateString) return "-";
@@ -143,7 +159,7 @@ export default function Pedidos() {
 
  
   useEffect(() => {
-    if (!selectedOrder) return;
+    if (!selectedOrder?.id) return;
 
     const refreshDetail = async () => {
       try {
@@ -169,9 +185,9 @@ export default function Pedidos() {
       }
     };
 
-    const interval = setInterval(refreshDetail, 5000);
+    const interval = setInterval(refreshDetail, 10000);
     return () => clearInterval(interval);
-  }, [selectedOrder]);
+  }, [selectedOrder?.id, selectedOrder?.status]);
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -189,7 +205,7 @@ export default function Pedidos() {
               </div>
 
               
-              {loading ? (
+              {!hasLoadedOnce && loading ? (
                 <div className="p-12 text-center text-gray-500">
                   Cargando pedidos...
                 </div>
