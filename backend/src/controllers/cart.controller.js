@@ -1,11 +1,19 @@
 import prisma from "../config/prisma.js";
 
-const mapCartItems = (items) =>
+const getUnitPrice = (product, userRole) => {
+  const role = String(userRole || "").toUpperCase();
+  if (role === "MAYORISTA") {
+    return Number(product.precioMayoristaSinIva ?? product.precioConIva ?? 0);
+  }
+  return Number(product.precioConIva ?? product.precioMayoristaSinIva ?? 0);
+};
+
+const mapCartItems = (items, userRole) =>
   items.map((item) => ({
     id: item.product.id,
     nombre: item.product.descripcion,
     codigo: item.product.codigoInterno || item.product.codigoOriginal || "-",
-    precioUnitario: Number(item.product.precioConIva || 0),
+    precioUnitario: getUnitPrice(item.product, userRole),
     cantidad: item.quantity,
     producto: item.product,
   }));
@@ -27,7 +35,7 @@ export const getMyCart = async (req, res) => {
       return res.json({ items: [] });
     }
 
-    return res.json({ items: mapCartItems(cart.items) });
+    return res.json({ items: mapCartItems(cart.items, req.user?.rol) });
   } catch (error) {
     return res.status(500).json({ error: "ERROR_GETTING_CART" });
   }
@@ -94,7 +102,7 @@ export const replaceMyCart = async (req, res) => {
     });
 
     return res.json({
-      items: updatedCart ? mapCartItems(updatedCart.items) : [],
+      items: updatedCart ? mapCartItems(updatedCart.items, req.user?.rol) : [],
     });
   } catch (error) {
     return res.status(500).json({ error: "ERROR_UPDATING_CART" });

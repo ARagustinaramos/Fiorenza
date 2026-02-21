@@ -9,6 +9,10 @@ const loadCartFromStorage = () => {
   return []
 }
 
+const getUnitPrice = (product) => {
+  return Number(product?.precioMayoristaSinIva ?? product?.precioConIva ?? 0)
+}
+
 const cartSlice = createSlice({
   name: 'cart',
   initialState: {
@@ -30,7 +34,7 @@ const cartSlice = createSlice({
           id: product.id,
           nombre: product.descripcion,
           codigo: product.codigoInterno || product.codigoOriginal || '-',
-          precioUnitario: product.precioConIva || 0,
+          precioUnitario: getUnitPrice(product),
           cantidad: 1,
           producto: product, 
         })
