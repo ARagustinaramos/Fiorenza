@@ -87,10 +87,6 @@ export default function AdminPedidos() {
         url = `${apiUrl}/orders/${selectedOrder.id}/confirm`;
         method = "POST";
         body = null;
-      } else if (newStatus === "CANCELLED") {
-        url = `${apiUrl}/orders/${selectedOrder.id}/cancel`;
-        method = "PATCH";
-        body = null;
       }
 
       const res = await fetch(url, {
@@ -128,16 +124,12 @@ export default function AdminPedidos() {
   const estados = {
     PENDING: "Pendiente",
     CONFIRMED: "Confirmado",
-    COMPLETED: "Completado",
-    CANCELLED: "Cancelado",
   };
 
   const estadoColor = (e) =>
     ({
       PENDING: "bg-yellow-100 text-yellow-700",
       CONFIRMED: "bg-red-100 text-red-700",
-      COMPLETED: "bg-green-100 text-green-700",
-      CANCELLED: "bg-gray-200 text-gray-700",
     }[e] || "bg-gray-100 text-gray-700");
 
   const formatDate = (d) =>
@@ -151,7 +143,7 @@ export default function AdminPedidos() {
       currency: "ARS",
     }).format(n || 0);
 
-  const availableStatuses = Object.keys(estados);
+  const availableStatuses = ["CONFIRMED"];
 
   /* ---------------- UI ---------------- */
 
@@ -205,7 +197,7 @@ export default function AdminPedidos() {
                       p.status
                     )}`}
                   >
-                    {estados[p.status]}
+                    {estados[p.status] || p.status}
                   </span>
                 </td>
                 <td className="px-6 py-4 font-semibold">
@@ -265,7 +257,7 @@ export default function AdminPedidos() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <Info label="Cliente" value={selectedOrder.user?.perfil?.nombreCompleto || selectedOrder.user?.email} />
                     <Info label="Fecha" value={formatDate(selectedOrder.createdAt)} />
-                    <Info label="Estado" value={estados[selectedOrder.status]} badge estado={selectedOrder.status} />
+                    <Info label="Estado" value={estados[selectedOrder.status] || selectedOrder.status} badge estado={selectedOrder.status} />
                     <Info label="Total" value={formatCurrency(selectedOrder.totalAmount)} highlight />
                   </div>
                   <div className="bg-gray-50 rounded-xl p-4 border">
@@ -274,7 +266,7 @@ export default function AdminPedidos() {
                     </p>
 
                     <div className="flex flex-wrap gap-2">
-                      {availableStatuses.map((s) => (
+                      {selectedOrder.status === "PENDING" && availableStatuses.map((s) => (
                         <button
                           key={s}
                           onClick={() => handleStatusChange(s)}
@@ -291,6 +283,9 @@ export default function AdminPedidos() {
                           {estados[s]}
                         </button>
                       ))}
+                      {selectedOrder.status === "CONFIRMED" && (
+                        <p className="text-sm text-gray-600">El pedido ya fue confirmado.</p>
+                      )}
                     </div>
 
                     {statusError && (
@@ -362,11 +357,9 @@ export default function AdminPedidos() {
 function Info({ label, value, highlight, badge, estado }) {
   const color = estado
     ? ({
-        PENDING: "bg-yellow-100 text-yellow-700",
-        CONFIRMED: "bg-red-100 text-red-700",
-        COMPLETED: "bg-green-100 text-green-700",
-        CANCELLED: "bg-gray-200 text-gray-700",
-      }[estado] || "")
+      PENDING: "bg-yellow-100 text-yellow-700",
+      CONFIRMED: "bg-red-100 text-red-700",
+    }[estado] || "")
     : "";
 
   return (

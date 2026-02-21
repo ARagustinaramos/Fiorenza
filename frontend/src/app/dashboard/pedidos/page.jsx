@@ -105,10 +105,6 @@ export default function Pedidos() {
     const statusMap = {
       PENDING: "bg-yellow-100 text-yellow-800",
       CONFIRMED: "bg-red-100 text-red-800",
-      PROCESSING: "bg-red-100 text-red-800",
-      SHIPPED: "bg-purple-100 text-purple-800",
-      DELIVERED: "bg-green-100 text-green-800",
-      CANCELLED: "bg-red-100 text-red-800",
     };
     return statusMap[status] || "bg-gray-100 text-gray-800";
   };
@@ -117,10 +113,6 @@ export default function Pedidos() {
     const statusMap = {
       PENDING: "Pendiente",
       CONFIRMED: "Confirmado",
-      PROCESSING: "En proceso",
-      SHIPPED: "Enviado",
-      DELIVERED: "Entregado",
-      CANCELLED: "Cancelado",
     };
     return statusMap[status] || status;
   };
@@ -285,23 +277,16 @@ export default function Pedidos() {
                 </div>
 
                 <div className="bg-white p-6 rounded-lg shadow-sm">
-                  <p className="text-sm text-gray-600 mb-2">En proceso</p>
+                  <p className="text-sm text-gray-600 mb-2">Confirmados</p>
                   <p className="text-3xl font-bold text-red-600">
-                    {
-                      orders.filter(
-                        (o) =>
-                          o.status === "CONFIRMED" ||
-                          o.status === "PROCESSING" ||
-                          o.status === "SHIPPED"
-                      ).length
-                    }
+                    {orders.filter((o) => o.status === "CONFIRMED").length}
                   </p>
                 </div>
 
                 <div className="bg-white p-6 rounded-lg shadow-sm">
-                  <p className="text-sm text-gray-600 mb-2">Entregados</p>
-                  <p className="text-3xl font-bold text-green-600">
-                    {orders.filter((o) => o.status === "DELIVERED").length}
+                  <p className="text-sm text-gray-600 mb-2">Pendientes</p>
+                  <p className="text-3xl font-bold text-yellow-600">
+                    {orders.filter((o) => o.status === "PENDING").length}
                   </p>
                 </div>
               </div>
