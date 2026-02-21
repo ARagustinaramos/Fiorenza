@@ -279,10 +279,14 @@ export const updateUserById = async (req, res) => {
 };
 
 export const createUser = async (req, res) => {
-  const { email, password, rol } = req.body;
+  const { email, password, rol, nombreCompleto } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ error: "EMAIL_AND_PASSWORD_REQUIRED" });
+  }
+
+  if (!nombreCompleto || !String(nombreCompleto).trim()) {
+    return res.status(400).json({ error: "NOMBRE_COMPLETO_REQUIRED" });
   }
 
   if (password.length < 6) {
@@ -302,6 +306,25 @@ export const createUser = async (req, res) => {
       password: hashed,
       rol,
       activo: true,
+      perfil: {
+        create: {
+          nombreCompleto: String(nombreCompleto).trim(),
+          cuitCuil: "",
+          empresa: "",
+          telefono: "",
+          cargo: "",
+        },
+      },
+    },
+    select: {
+      id: true,
+      email: true,
+      rol: true,
+      perfil: {
+        select: {
+          nombreCompleto: true,
+        },
+      },
     },
   });
 
@@ -311,6 +334,7 @@ export const createUser = async (req, res) => {
       id: user.id,
       email: user.email,
       rol: user.rol,
+      nombreCompleto: user.perfil?.nombreCompleto || "",
     },
   });
 };
