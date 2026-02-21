@@ -3,7 +3,6 @@ import {
     getUserOrdersService,
     getAllOrdersService,
     confirmOrderService,
-    cancelOrderService,
     updateOrderStatusService,
     getOrderByIdService,
     createWholesaleOrderFlow,
@@ -91,12 +90,10 @@ import {
   };
 
   export const cancelOrder = async (req, res) => {
-    try {
-      const result = await cancelOrderService(req.params.id);
-      res.json(result);
-    } catch (error) {
-      res.status(400).json({ error: error.message });
-    }
+    return res.status(400).json({
+      error: "ORDER_CANCELLATION_DISABLED",
+      message: "La cancelacion de pedidos esta deshabilitada. Solo se permiten estados PENDING y CONFIRMED.",
+    });
   };
   
 
