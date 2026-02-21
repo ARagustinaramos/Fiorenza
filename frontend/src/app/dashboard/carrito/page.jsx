@@ -19,6 +19,7 @@ export default function Carrito() {
   const cartItems = useSelector((state) => state.cart.items);
 
   const [mounted, setMounted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const getProductsPath = () => {
     const userRole = user?.rol?.toUpperCase();
@@ -57,12 +58,13 @@ export default function Carrito() {
   };
 
   const handleCreateOrder = async () => {
-    if (cartItems.length === 0) return;
+    if (cartItems.length === 0 || isSubmitting) return;
 
     const userRole = user?.rol?.toUpperCase();
     const orderType = userRole === "MAYORISTA" ? "MAYORISTA" : "MINORISTA";
 
     try {
+      setIsSubmitting(true);
       const payload = {
         type: orderType,
         items: cartItems.map((item) => ({
@@ -96,6 +98,8 @@ export default function Carrito() {
     } catch (error) {
       console.error(error);
       alert("No se pudo enviar el pedido");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -196,9 +200,10 @@ export default function Carrito() {
 
             <button
               onClick={handleCreateOrder}
-              className="btn-primary w-full py-3"
+              disabled={isSubmitting || cartItems.length === 0}
+              className="btn-primary w-full py-3 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Enviar pedido
+              {isSubmitting ? "Enviando pedido..." : "Enviar pedido"}
             </button>
           </div>
 
