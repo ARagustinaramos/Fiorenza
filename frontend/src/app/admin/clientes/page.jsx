@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Eye, X, Toggle2 } from "lucide-react";
+import { Eye, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
 export default function AdminClientes() {
@@ -12,15 +12,26 @@ export default function AdminClientes() {
   const [selectedCliente, setSelectedCliente] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [togglingStatus, setTogglingStatus] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    nombreCompleto: "",
+    telefono: "",
+    empresa: "",
+    cuitCuil: "",
+    cargo: "",
+    coeficiente: 0,
+  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 20;
   const searchParams = useSearchParams();
   const refresh = searchParams.get("refresh");
 
 
-useEffect(() => {
-  fetchClientes();
-}, [refresh]);
+  useEffect(() => {
+    fetchClientes();
+  }, [refresh]);
 
   const fetchClientes = async ({ silent = false } = {}) => {
     try {
@@ -32,7 +43,7 @@ useEffect(() => {
       const token = localStorage.getItem("token");
 
       if (!token) {
-        setError("No hay token de autenticación");
+        setError("No hay token de autenticacion");
         return;
       }
 
@@ -49,6 +60,7 @@ useEffect(() => {
       const data = await res.json();
       setClientes(data || []);
       setHasLoadedOnce(true);
+      setCurrentPage(1);
     } catch (err) {
       console.error("Error cargando clientes:", err);
       if (!silent) {
@@ -80,6 +92,14 @@ useEffect(() => {
 
       const data = await res.json();
       setSelectedCliente(data);
+      setProfileForm({
+        nombreCompleto: data?.perfil?.nombreCompleto || "",
+        telefono: data?.perfil?.telefono || "",
+        empresa: data?.perfil?.empresa || "",
+        cuitCuil: data?.perfil?.cuitCuil || "",
+        cargo: data?.perfil?.cargo || "",
+        coeficiente: Number(data?.coeficiente || 0),
+      });
     } catch (err) {
       console.error("Error:", err);
       alert("No se pudo cargar el detalle del cliente");
@@ -133,7 +153,7 @@ useEffect(() => {
     if (!selectedCliente || !newPassword) return;
 
     if (newPassword.length < 6) {
-      alert("La contraseña debe tener al menos 6 caracteres");
+      alert("La contrasena debe tener al menos 6 caracteres");
       return;
     }
 
@@ -153,10 +173,10 @@ useEffect(() => {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || "Error al actualizar contraseña");
+        throw new Error(errorData.error || "Error al actualizar contrasena");
       }
 
-      alert("Contraseña actualizada correctamente");
+      alert("Contrasena actualizada correctamente");
       setNewPassword("");
     } catch (err) {
       console.error("Error:", err);
@@ -165,6 +185,58 @@ useEffect(() => {
       setPasswordLoading(false);
     }
   };
+
+  const handleSaveProfile = async () => {
+    if (!selectedCliente) return;
+
+    if (!profileForm.nombreCompleto.trim()) {
+      alert("El nombre completo es obligatorio");
+      return;
+    }
+
+    try {
+      setProfileSaving(true);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+      const token = localStorage.getItem("token");
+
+      const res = await fetch(`${apiUrl}/users/${selectedCliente.id}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          nombreCompleto: profileForm.nombreCompleto.trim(),
+          telefono: profileForm.telefono?.trim() || "",
+          empresa: profileForm.empresa?.trim() || "",
+          cuitCuil: profileForm.cuitCuil?.trim() || "",
+          cargo: profileForm.cargo?.trim() || "",
+          coeficiente: Number(profileForm.coeficiente || 0),
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.error || "Error al guardar perfil");
+      }
+
+      const updatedCliente = await res.json();
+      setSelectedCliente(updatedCliente);
+      setClientes((prev) =>
+        prev.map((c) => (c.id === updatedCliente.id ? updatedCliente : c))
+      );
+      alert("Perfil actualizado correctamente");
+    } catch (err) {
+      console.error("Error guardando perfil:", err);
+      alert(`Error: ${err.message}`);
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const totalPages = Math.max(1, Math.ceil(clientes.length / PAGE_SIZE));
+  const startIndex = (currentPage - 1) * PAGE_SIZE;
+  const paginatedClientes = clientes.slice(startIndex, startIndex + PAGE_SIZE);
 
   if (!hasLoadedOnce && loading) {
     return (
@@ -209,7 +281,7 @@ useEffect(() => {
                     Email
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                    Teléfono
+                    Telefono
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
                     Tipo de cliente
@@ -218,7 +290,7 @@ useEffect(() => {
                     Estado
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                    Acción
+                    Accion
                   </th>
                 </tr>
               </thead>
@@ -231,7 +303,7 @@ useEffect(() => {
                     </td>
                   </tr>
                 ) : (
-                  clientes.map((cliente) => (
+                  paginatedClientes.map((cliente) => (
                     <tr key={cliente.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 text-sm font-medium text-gray-900">
                         {cliente.perfil?.nombreCompleto || "Sin nombre"}
@@ -286,6 +358,33 @@ useEffect(() => {
           </div>
         </div>
 
+        {clientes.length > PAGE_SIZE && (
+          <div className="mt-4 flex items-center justify-between">
+            <p className="text-sm text-gray-600">
+              Mostrando {startIndex + 1} a {Math.min(startIndex + PAGE_SIZE, clientes.length)} de {clientes.length} clientes
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+              >
+                Anterior
+              </button>
+              <span className="text-sm text-gray-700">
+                Pagina {currentPage} de {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Modal de detalle del cliente */}
         {selectedCliente && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -305,23 +404,31 @@ useEffect(() => {
               <div className="p-6 space-y-6">
             
                 <div>
-                  <h3 className="text-lg font-bold mb-4 text-gray-900">Información Personal</h3>
+                  <h3 className="text-lg font-bold mb-4 text-gray-900">Informacion Personal</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-gray-600 mb-1">Nombre Completo</p>
-                      <p className="font-semibold">
-                        {selectedCliente.perfil?.nombreCompleto || "-"}
-                      </p>
+                      <input
+                        value={profileForm.nombreCompleto}
+                        onChange={(e) =>
+                          setProfileForm((prev) => ({ ...prev, nombreCompleto: e.target.value }))
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                      />
                     </div>
                     <div>
                       <p className="text-sm text-gray-600 mb-1">Email</p>
                       <p className="font-semibold">{selectedCliente.email}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600 mb-1">Teléfono</p>
-                      <p className="font-semibold">
-                        {selectedCliente.perfil?.telefono || "-"}
-                      </p>
+                      <p className="text-sm text-gray-600 mb-1">Telefono</p>
+                      <input
+                        value={profileForm.telefono}
+                        onChange={(e) =>
+                          setProfileForm((prev) => ({ ...prev, telefono: e.target.value }))
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                      />
                     </div>
                     <div>
                       <p className="text-sm text-gray-600 mb-1">Tipo de Cliente</p>
@@ -342,32 +449,59 @@ useEffect(() => {
                   </div>
                 </div>
                 <div className="border-t pt-6">
-                  <h3 className="text-lg font-bold mb-4 text-gray-900">Información Empresarial</h3>
+                  <h3 className="text-lg font-bold mb-4 text-gray-900">Informacion Empresarial</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-gray-600 mb-1">Empresa</p>
-                      <p className="font-semibold">
-                        {selectedCliente.perfil?.empresa || "-"}
-                      </p>
+                      <input
+                        value={profileForm.empresa}
+                        onChange={(e) =>
+                          setProfileForm((prev) => ({ ...prev, empresa: e.target.value }))
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                      />
                     </div>
                     <div>
                       <p className="text-sm text-gray-600 mb-1">CUIT/CUIL</p>
-                      <p className="font-semibold">
-                        {selectedCliente.perfil?.cuitCuil || "-"}
-                      </p>
+                      <input
+                        value={profileForm.cuitCuil}
+                        onChange={(e) =>
+                          setProfileForm((prev) => ({ ...prev, cuitCuil: e.target.value }))
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                      />
                     </div>
                     <div>
                       <p className="text-sm text-gray-600 mb-1">Cargo</p>
-                      <p className="font-semibold">
-                        {selectedCliente.perfil?.cargo || "-"}
-                      </p>
+                      <input
+                        value={profileForm.cargo}
+                        onChange={(e) =>
+                          setProfileForm((prev) => ({ ...prev, cargo: e.target.value }))
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                      />
                     </div>
                     <div>
                       <p className="text-sm text-gray-600 mb-1">Coeficiente</p>
-                      <p className="font-semibold">
-                        {selectedCliente.coeficiente || "0"}
-                      </p>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={profileForm.coeficiente}
+                        onChange={(e) =>
+                          setProfileForm((prev) => ({ ...prev, coeficiente: e.target.value }))
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                      />
                     </div>
+                  </div>
+                  <div className="mt-4">
+                    <button
+                      onClick={handleSaveProfile}
+                      disabled={profileSaving}
+                      className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {profileSaving ? "Guardando..." : "Guardar cambios de perfil"}
+                    </button>
                   </div>
                 </div>
                 <div className="border-t pt-6">
@@ -382,7 +516,7 @@ useEffect(() => {
                             : "text-red-700"
                         }`}
                       >
-                        {selectedCliente.activo ? "✓ Cliente Activo" : "✗ Cliente Inactivo"}
+                        {selectedCliente.activo ? "Cliente Activo" : "Cliente Inactivo"}
                       </p>
                     </div>
                     <button
@@ -412,13 +546,13 @@ useEffect(() => {
                 <div className="border-t pt-6">
                   <h3 className="text-lg font-bold mb-4 text-gray-900">Seguridad</h3>
                   <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
-                    <p className="text-sm text-gray-600 mb-3">Cambiar contraseña del usuario</p>
+                    <p className="text-sm text-gray-600 mb-3">Cambiar contrasena del usuario</p>
                     <div className="flex gap-3">
                       <input
                         type="password"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="Nueva contraseña"
+                        placeholder="Nueva contrasena"
                         className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
                       />
                       <button
@@ -447,3 +581,4 @@ useEffect(() => {
     </div>
   );
 }
+

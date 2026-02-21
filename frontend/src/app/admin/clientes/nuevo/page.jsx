@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 export default function NuevoClientePage() {
   const router = useRouter();
 
+  const [nombreCompleto, setNombreCompleto] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rol, setRol] = useState("MAYORISTA");
@@ -30,7 +31,7 @@ export default function NuevoClientePage() {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password, rol }),
+        body: JSON.stringify({ nombreCompleto, email, password, rol }),
       });
 
       const data = await res.json();
@@ -62,6 +63,19 @@ export default function NuevoClientePage() {
           onSubmit={handleSubmit}
           className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-6"
         >
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nombre completo
+            </label>
+            <input
+              type="text"
+              required
+              value={nombreCompleto}
+              onChange={(e) => setNombreCompleto(e.target.value)}
+              className="w-full border rounded px-3 py-2"
+            />
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Email
