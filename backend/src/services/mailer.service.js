@@ -42,6 +42,8 @@ export const sendNewWholesaleOrderMail = async (order) => {
     const p = i.product || {};
 
     const codigo = p.codigoInterno || "-";
+    const codigoProveedor = p.codigoProveedor || "-";
+    const proveedor = p.proveedor || "-";
     const descripcion = p.descripcion || "-";
     const quantity = Number(i.quantity || 1);
     const subtotal = Number(i.subtotal || 0);
@@ -50,6 +52,8 @@ export const sendNewWholesaleOrderMail = async (order) => {
       <tr>
         <td>${codigo}</td>
         <td>${descripcion}</td>
+        <td>${codigoProveedor}</td>
+        <td>${proveedor}</td>
         <td align="center">${quantity}</td>
         <td align="right">$${subtotal.toLocaleString("es-AR")}</td>
       </tr>
@@ -74,6 +78,8 @@ export const sendNewWholesaleOrderMail = async (order) => {
         <tr>
           <th align="left">Código</th>
           <th align="left">Descripción</th>
+          <th align="left">Codigo proveedor</th>
+          <th align="left">Proveedor</th>
           <th align="center">Cantidad</th>
           <th align="right">Precio</th>
         </tr>
