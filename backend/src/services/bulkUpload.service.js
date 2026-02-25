@@ -93,9 +93,17 @@ const parseNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const parseOptionalText = (value) => {
+  if (value === null || value === undefined) return null;
+  const text = value.toString().trim();
+  return text === "" ? null : text;
+};
+
 const mapExcelToProduct = (row) => ({
   codigoInterno: sanitizeText(row["CODIGO INTERNO"]),
   codigoOriginal: (row["CODIGO ORIGINAL"]?.toString() ?? "").trim(),
+  codigoProveedor: parseOptionalText(row["CODIGO PROVEEDOR"]),
+  proveedor: parseOptionalText(row["PROVEEDOR"]),
   descripcion: sanitizeText(row["DESCRIPCION"]),
   descripcionAdicional: sanitizeText(row["DESCRIPCION ADICIONAL"]),
   stock: parseNumber(row["STOCK"]) || 0,
@@ -335,6 +343,8 @@ export const runBulkUpload = async ({ filePath, mode = "upsert", onProgress }) =
             const commonData = {
               codigoInterno: item.codigoInterno,
               codigoOriginal: item.codigoOriginal,
+              codigoProveedor: item.codigoProveedor,
+              proveedor: item.proveedor,
               descripcion: item.descripcion,
               descripcionAdicional: item.descripcionAdicional,
               precioConIva: item.precioConIva,

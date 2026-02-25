@@ -114,6 +114,8 @@ model Product {
 
   codigoInterno String @unique
   codigoOriginal String?
+  codigoProveedor String?
+  proveedor String?
   codigoOriginalNormalizado String?
 
   descripcion String?
