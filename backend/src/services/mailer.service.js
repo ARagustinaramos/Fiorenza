@@ -41,21 +41,19 @@ export const sendNewWholesaleOrderMail = async (order) => {
   const itemsRows = order.items.map(i => {
     const p = i.product || {};
 
-    const codigo = p.codigoInterno || "-";
-    const codigoProveedor = p.codigoProveedor || "-";
     const proveedor = p.proveedor || "-";
+    const codigoProveedor = p.codigoProveedor || "-";
     const descripcion = p.descripcion || "-";
+    const codigo = p.codigoInterno || "-";
     const quantity = Number(i.quantity || 1);
-    const subtotal = Number(i.subtotal || 0);
 
     return `
       <tr>
-        <td>${codigo}</td>
-        <td>${descripcion}</td>
-        <td>${codigoProveedor}</td>
         <td>${proveedor}</td>
+        <td>${codigoProveedor}</td>
+        <td>${descripcion}</td>
+        <td>${codigo}</td>
         <td align="center">${quantity}</td>
-        <td align="right">$${subtotal.toLocaleString("es-AR")}</td>
       </tr>
     `;
   }).join("");
@@ -74,14 +72,13 @@ export const sendNewWholesaleOrderMail = async (order) => {
       width="100%" 
       style="border-collapse: collapse; margin-top: 10px; font-family: Arial, sans-serif;"
     >
-      <thead style="background:#f2f2f2;">
+            <thead style="background:#f2f2f2;">
         <tr>
-          <th align="left">Código</th>
-          <th align="left">Descripción</th>
-          <th align="left">Codigo proveedor</th>
           <th align="left">Proveedor</th>
+          <th align="left">Codigo proveedor</th>
+          <th align="left">Descripcion</th>
+          <th align="left">Codigo interno</th>
           <th align="center">Cantidad</th>
-          <th align="right">Precio</th>
         </tr>
       </thead>
       <tbody>
@@ -130,3 +127,4 @@ export const sendNewWholesaleOrderMail = async (order) => {
     throw error;
   }
 };
+

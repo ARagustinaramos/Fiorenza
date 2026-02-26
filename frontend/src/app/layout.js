@@ -14,7 +14,7 @@ const montserrat = Montserrat({
 });
 
 export const metadata = {
-  title: "Fiorenza App",
+  title: "Mayorista Fiorenza",
   description: "Aplicación Fiorenza",
 };
 
@@ -31,3 +31,4 @@ export default function RootLayout({ children }) {
     </html>
   );
 }
+
