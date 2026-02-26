@@ -15,7 +15,12 @@ const montserrat = Montserrat({
 
 export const metadata = {
   title: "Mayorista Fiorenza",
-  description: "Aplicación Fiorenza",
+  description: "Aplicacion Fiorenza",
+  icons: {
+    icon: "/letraF.jpg",
+    shortcut: "/letraF.jpg",
+    apple: "/letraF.jpg",
+  },
 };
 
 export default function RootLayout({ children }) {
@@ -31,4 +36,3 @@ export default function RootLayout({ children }) {
     </html>
   );
 }
-
