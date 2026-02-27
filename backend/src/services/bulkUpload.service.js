@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import fs from "fs/promises";
 import path from "path";
 import prisma from "../config/prisma.js";
 
@@ -56,8 +57,49 @@ const REQUIRED_COLUMNS = [
   "PRECIO MAYORISTA SIN IVA",
 ];
 
+const HEADER_ALIASES = new Map([
+  ["CODIGO INTERNO", ["CODIGO INTERNO", "CODIGO"]],
+  ["CODIGO ORIGINAL", ["CODIGO ORIGINAL"]],
+  ["CODIGO PROVEEDOR", ["CODIGO PROVEEDOR"]],
+  ["PROVEEDOR", ["PROVEEDOR"]],
+  ["DESCRIPCION", ["DESCRIPCION"]],
+  ["DESCRIPCION ADICIONAL", ["DESCRIPCION ADICIONAL"]],
+  ["STOCK", ["STOCK"]],
+  [
+    "PRECIO PUBLICO FINAL CON IVA",
+    [
+      "PRECIO PUBLICO FINAL CON IVA",
+      "PRECIO PUBLICO CON IVA",
+      "PRECIO FINAL CON IVA",
+    ],
+  ],
+  [
+    "PRECIO MAYORISTA SIN IVA",
+    [
+      "PRECIO MAYORISTA SIN IVA",
+      "PRECIO MAYORISTA",
+    ],
+  ],
+  ["MARCA", ["MARCA"]],
+  ["FAMILIA", ["FAMILIA"]],
+  ["RUBRO", ["RUBRO"]],
+  ["NOVEDADES", ["NOVEDADES"]],
+  ["OFERTAS", ["OFERTAS"]],
+  ["BAJA", ["BAJA"]],
+]);
+
 const sanitizeText = (value) =>
   value ? value.toString().replace(/\s+/g, " ").trim() : "";
+
+const resolveCanonicalHeader = (rawHeader) => {
+  const normalized = normalizeHeader(rawHeader);
+  for (const [canonical, aliases] of HEADER_ALIASES.entries()) {
+    if (aliases.some((alias) => normalizeHeader(alias) === normalized)) {
+      return canonical;
+    }
+  }
+  return normalized;
+};
 
 const normalizeBoolean = (value) =>
   ["si", "sÃ­", "true", "1"].includes(value?.toString().trim().toLowerCase());
@@ -162,11 +204,42 @@ const loadWorkbookFromFile = async (filePath) => {
   const workbook = new ExcelJS.Workbook();
   const ext = path.extname(filePath).toLowerCase();
   if (ext === ".csv") {
-    await workbook.csv.readFile(filePath);
+    const preview = await fs.readFile(filePath, "utf8").catch(() => "");
+    const firstLine = preview.split(/\r?\n/)[0] || "";
+    const delimiter = firstLine.includes(";") ? ";" : ",";
+    await workbook.csv.readFile(filePath, {
+      parserOptions: { delimiter },
+    });
   } else {
     await workbook.xlsx.readFile(filePath);
   }
   return workbook;
+};
+
+const findHeaderRow = (worksheet, mode) => {
+  const maxScanRows = Math.min(20, worksheet.rowCount);
+  const requiredForMode =
+    mode === "delete" ? ["CODIGO INTERNO"] : REQUIRED_COLUMNS;
+
+  for (let rowNumber = 1; rowNumber <= maxScanRows; rowNumber++) {
+    const row = worksheet.getRow(rowNumber);
+    const normalizedHeaders = row.values
+      .slice(1)
+      .map((value) => resolveCanonicalHeader(value));
+
+    const hasRequired = requiredForMode.every((required) =>
+      normalizedHeaders.includes(required)
+    );
+
+    if (hasRequired) {
+      return {
+        rowNumber,
+        headers: normalizedHeaders,
+      };
+    }
+  }
+
+  return null;
 };
 
 const isTransientDbError = (err) => {
@@ -230,28 +303,21 @@ export const runBulkUpload = async ({ filePath, mode = "upsert", onProgress }) =
     });
   };
 
-  for (const worksheet of workbook.worksheets) {
-    const headerRow = worksheet.getRow(1);
-    const headers = headerRow.values.slice(1).map((h) => normalizeHeader(h));
+  let processedSheetCount = 0;
 
-    if (mode !== "delete") {
-      const missingColumns = REQUIRED_COLUMNS.filter(
-        (col) => !headers.includes(col)
-      );
-      if (missingColumns.length) {
-        throw new Error(
-          `Columnas faltantes en hoja ${worksheet.name}: ${missingColumns.join(", ")}`
-        );
-      }
-    } else if (!headers.includes("CODIGO INTERNO")) {
-      throw new Error(
-        `Columna CODIGO INTERNO faltante en hoja ${worksheet.name}`
-      );
+  for (const worksheet of workbook.worksheets) {
+    const headerInfo = findHeaderRow(worksheet, mode);
+    if (!headerInfo) {
+      continue;
     }
+
+    processedSheetCount += 1;
+    const headers = headerInfo.headers;
+    const firstDataRow = headerInfo.rowNumber + 1;
 
     let batch = [];
 
-    for (let i = 2; i <= worksheet.rowCount; i++) {
+    for (let i = firstDataRow; i <= worksheet.rowCount; i++) {
       const row = worksheet.getRow(i);
       totalRows++;
 
@@ -436,6 +502,18 @@ export const runBulkUpload = async ({ filePath, mode = "upsert", onProgress }) =
         }
       }
     }
+  }
+
+  if (processedSheetCount === 0) {
+    if (mode === "delete") {
+      throw new Error(
+        "No se encontro una hoja con la columna CODIGO INTERNO en las primeras filas"
+      );
+    }
+
+    throw new Error(
+      `No se encontro una hoja con columnas requeridas: ${REQUIRED_COLUMNS.join(", ")}`
+    );
   }
 
   return {
