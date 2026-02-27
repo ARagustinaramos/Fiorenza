@@ -51,7 +51,10 @@ export default function AdminDashboard() {
         const orders = ordersData.data || [];
 
         const pedidosMes = orders.length;
-        const ventasMes = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+        const ventasMes = orders.reduce((sum, order) => {
+          const amount = Number(order?.totalAmount);
+          return sum + (Number.isFinite(amount) ? amount : 0);
+        }, 0);
 
         // Obtener usuarios
         const usersRes = await fetch(`${apiUrl}/users`, {
@@ -83,12 +86,13 @@ export default function AdminDashboard() {
   }, []);
 
   const formatCurrency = (amount) => {
-    if (!amount) return "$0,00";
+    const numericAmount = Number(amount);
+    if (!Number.isFinite(numericAmount) || numericAmount === 0) return "$0,00";
     return new Intl.NumberFormat("es-AR", {
       style: "currency",
       currency: "ARS",
       maximumFractionDigits: 0,
-    }).format(amount);
+    }).format(numericAmount);
   };
 
   const formatDate = (dateString) => {
