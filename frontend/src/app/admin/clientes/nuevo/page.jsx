@@ -3,6 +3,32 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+const CREATE_USER_ERROR_MESSAGES = {
+  USER_EXISTS: "Ya existe un usuario con ese email.",
+  EMAIL_AND_PASSWORD_REQUIRED: "Email y contrasena son obligatorios.",
+  NOMBRE_COMPLETO_REQUIRED: "El nombre completo es obligatorio.",
+  PASSWORD_TOO_SHORT: "La contrasena debe tener al menos 6 caracteres.",
+  UNAUTHORIZED: "Tu sesion expiro. Volve a iniciar sesion.",
+  FORBIDDEN: "No tenes permisos para crear usuarios.",
+  ERROR_CREATE_USER: "No se pudo crear el cliente.",
+};
+
+const getCreateUserErrorMessage = (errorCode, status) => {
+  if (CREATE_USER_ERROR_MESSAGES[errorCode]) {
+    return CREATE_USER_ERROR_MESSAGES[errorCode];
+  }
+
+  if (status === 500) {
+    return "Error interno del servidor. Intenta nuevamente en unos minutos.";
+  }
+
+  if (status === 400) {
+    return "Revisa los datos ingresados e intenta nuevamente.";
+  }
+
+  return "No se pudo crear el cliente.";
+};
+
 export default function NuevoClientePage() {
   const router = useRouter();
 
@@ -31,13 +57,21 @@ export default function NuevoClientePage() {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ nombreCompleto, email, password, rol }),
+        body: JSON.stringify({
+          nombreCompleto: nombreCompleto.trim(),
+          email: email.trim().toLowerCase(),
+          password,
+          rol,
+        }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        throw new Error(data.error || "ERROR_CREATE_USER");
+        const errorCode = data?.error || `HTTP_${res.status}`;
+        const apiError = new Error(errorCode);
+        apiError.status = res.status;
+        throw apiError;
       }
 
       setMessage("✅ Cliente creado correctamente");
@@ -48,7 +82,7 @@ export default function NuevoClientePage() {
       }, 1200);
     } catch (err) {
       console.error(err);
-      setError("No se pudo crear el cliente");
+      setError(getCreateUserErrorMessage(err.message, err.status));
     } finally {
       setLoading(false);
     }
