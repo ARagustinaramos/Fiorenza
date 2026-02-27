@@ -115,7 +115,7 @@ export const sendNewWholesaleOrderMail = async (order) => {
 
   try {
     const result = await resend.emails.send({
-      from: "Pedidos <info@fiorenzarepuestos.com.ar>", // mientras no tengas dominio
+      from: "Pedidos <pedidos@fiorenzarepuestos.com.ar>", 
       to: [process.env.ORDERS_EMAIL],
       replyTo,
       subject: `Nuevo pedido mayorista #${orderId}`,
