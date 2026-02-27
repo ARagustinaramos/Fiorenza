@@ -34,6 +34,7 @@ export const sendNewWholesaleOrderMail = async (order) => {
 
   const userEmail = order.user?.email || order.email || "Sin email";
   const orderId = order.id || order._id || "N/A";
+  const replyTo = userEmail.includes("@") ? userEmail : undefined;
   const totalAmount = order.items.reduce((acc, i) => {
   return acc + Number(i.subtotal || 0);
   }, 0);
@@ -99,6 +100,7 @@ export const sendNewWholesaleOrderMail = async (order) => {
     const info = await mailtrapTransporter.sendMail({
       from: '"Pedidos" <test@mailtrap.io>',
       to: process.env.ORDERS_EMAIL,
+      replyTo,
       subject: `Nuevo pedido mayorista #${orderId}`,
       html: htmlContent
     });
@@ -115,6 +117,7 @@ export const sendNewWholesaleOrderMail = async (order) => {
     const result = await resend.emails.send({
       from: "Pedidos <info@fiorenzarepuestos.com.ar>", // mientras no tengas dominio
       to: [process.env.ORDERS_EMAIL],
+      replyTo,
       subject: `Nuevo pedido mayorista #${orderId}`,
       html: htmlContent
     });
