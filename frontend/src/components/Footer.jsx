@@ -32,7 +32,12 @@ export function Footer() {
 
           <div className="flex items-center gap-3 text-gray-400">
             <MessageCircle className="w-5 h-5" />
-            <span>1153444546 (solo mensajes)</span>
+            <span>1153444546 Ventas Mayoristas (solo mensajes)</span>
+          </div>
+
+          <div className="flex items-center gap-3 text-gray-400">
+            <MessageCircle className="w-5 h-5" />
+            <span>1169758185 Ventas Minorista (solo mensajes)</span>
           </div>
 
           <a

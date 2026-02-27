@@ -74,12 +74,12 @@ export default function ContactForm() {
   return (
     <section className="w-full max-w-2xl mx-auto py-12 px-4 sm:px-6">
       <h2 className="text-xl sm:text-2xl font-medium text-gray-900">
-        ¿Querés comprar por la web?
+        ¿Sos casa de repuestos?
       </h2>
 
       <p className="mt-2 max-w-xl text-gray-600">
-        Dejanos tus datos y te contactamos a la brevedad para ayudarte con tu
-        compra.
+        Solicitá tu cuenta mayorista para comprar online.
+        Envíanos tus datos y te contactaremos a la brevedad.
       </p>
 
       <form
