@@ -359,22 +359,17 @@ export const previewOrderService = async ({ user, type, items }) => {
 };
 
 export const createWholesaleOrderFlow = async ({ user, items }) => {
-
-  const preview = await previewOrderService({
+  const order = await createOrderService({
     user,
     type: "MAYORISTA",
     items,
   });
 
   try {
-    await sendNewWholesaleOrderMail(preview);
+    await sendNewWholesaleOrderMail(order);
   } catch (emailError) {
     console.error("Error al enviar email de pedido mayorista:", emailError);
   }
 
-  return createOrderService({
-    user,
-    type: "MAYORISTA",
-    items,
-  });
+  return order;
 };
