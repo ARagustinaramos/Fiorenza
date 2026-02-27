@@ -4,9 +4,17 @@ import { useEffect, useState } from "react";
 import { Eye, X } from "lucide-react";
 
 export default function AdminPedidos() {
+  const PAGE_SIZE = 20;
   const [pedidos, setPedidos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: PAGE_SIZE,
+    total: 0,
+    pages: 1,
+  });
 
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -16,8 +24,8 @@ export default function AdminPedidos() {
   const [statusError, setStatusError] = useState(null);
 
   useEffect(() => {
-    fetchPedidos();
-  }, []);
+    fetchPedidos(page);
+  }, [page]);
 
   const apiUrl =
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
@@ -28,12 +36,17 @@ export default function AdminPedidos() {
     return token;
   };
 
-  const fetchPedidos = async () => {
+  const fetchPedidos = async (targetPage = 1) => {
     try {
       setLoading(true);
       setError(null);
 
-      const res = await fetch(`${apiUrl}/orders?limit=100`, {
+      const params = new URLSearchParams({
+        page: String(targetPage),
+        limit: String(PAGE_SIZE),
+      });
+
+      const res = await fetch(`${apiUrl}/orders?${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${getToken()}`,
         },
@@ -43,6 +56,12 @@ export default function AdminPedidos() {
 
       const data = await res.json();
       setPedidos(data.data || []);
+      setPagination({
+        page: data.pagination?.page || targetPage,
+        limit: data.pagination?.limit || PAGE_SIZE,
+        total: data.pagination?.total || 0,
+        pages: data.pagination?.pages || 1,
+      });
     } catch (err) {
       console.error(err);
       setError(err.message);
@@ -179,42 +198,78 @@ export default function AdminPedidos() {
           </thead>
 
           <tbody className="divide-y">
-            {pedidos.map((p) => (
-              <tr key={p.id} className="hover:bg-gray-50 transition">
-                <td className="px-6 py-4 font-medium">
-                  #{p.id.slice(0, 8).toUpperCase()}
-                </td>
-                <td className="px-6 py-4">
-                  {p.user?.perfil?.nombreCompleto ||
-                    p.user?.email}
-                </td>
-                <td className="px-6 py-4 text-gray-600">
-                  {formatDate(p.createdAt)}
-                </td>
-                <td className="px-6 py-4">
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-medium ${estadoColor(
-                      p.status
-                    )}`}
-                  >
-                    {estados[p.status] || p.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 font-semibold">
-                  {formatCurrency(p.totalAmount)}
-                </td>
-                <td className="px-6 py-4">
-                  <button
-                    onClick={() => fetchOrderDetail(p.id)}
-                    className="text-blue-600 hover:text-blue-800 flex gap-1 items-center"
-                  >
-                    <Eye className="w-4 h-4" /> Ver
-                  </button>
+            {pedidos.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={6}
+                  className="px-6 py-8 text-center text-gray-500"
+                >
+                  No hay pedidos para mostrar.
                 </td>
               </tr>
-            ))}
+            ) : (
+              pedidos.map((p) => (
+                <tr key={p.id} className="hover:bg-gray-50 transition">
+                  <td className="px-6 py-4 font-medium">
+                    #{p.id.slice(0, 8).toUpperCase()}
+                  </td>
+                  <td className="px-6 py-4">
+                    {p.user?.perfil?.nombreCompleto ||
+                      p.user?.email}
+                  </td>
+                  <td className="px-6 py-4 text-gray-600">
+                    {formatDate(p.createdAt)}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-medium ${estadoColor(
+                        p.status
+                      )}`}
+                    >
+                      {estados[p.status] || p.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 font-semibold">
+                    {formatCurrency(p.totalAmount)}
+                  </td>
+                  <td className="px-6 py-4">
+                    <button
+                      onClick={() => fetchOrderDetail(p.id)}
+                      className="text-blue-600 hover:text-blue-800 flex gap-1 items-center"
+                    >
+                      <Eye className="w-4 h-4" /> Ver
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
+      </div>
+
+      <div className="mt-4 flex items-center justify-between">
+        <p className="text-sm text-gray-600">
+          Total de pedidos: {pagination.total}
+        </p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+            disabled={loading || page <= 1}
+            className="px-4 py-2 rounded-lg border text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+          >
+            Anterior
+          </button>
+          <p className="text-sm text-gray-700">
+            Página {page} de {pagination.pages}
+          </p>
+          <button
+            onClick={() => setPage((prev) => Math.min(prev + 1, pagination.pages))}
+            disabled={loading || page >= pagination.pages}
+            className="px-4 py-2 rounded-lg border text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+          >
+            Siguiente
+          </button>
+        </div>
       </div>
 
       {selectedOrder && (
