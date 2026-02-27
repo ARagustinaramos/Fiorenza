@@ -23,7 +23,6 @@ import {
         items,
       });
 
-      await sendNewWholesaleOrderMail(order);
 
     } else if (type === "MINORISTA") {
 
