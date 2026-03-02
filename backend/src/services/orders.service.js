@@ -3,6 +3,41 @@ import { validateOrderInput } from "../validators/order.validator.js";
 import { isValidStatusTransition, getStatusTransitionMessage } from "../validators/orderStatus.validator.js";
 import { sendNewWholesaleOrderMail } from "./mailer.service.js";
 
+const TX_OPTIONS = {
+  maxWait: 10_000,
+  timeout: 20_000,
+};
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isTransientTransactionError = (error) => {
+  const message = String(error?.message || "");
+  return (
+    error?.code === "P2028" ||
+    message.includes("Transaction not found") ||
+    message.includes("Transaction already closed") ||
+    message.includes("MaxClientsInSessionMode")
+  );
+};
+
+const runWithTransactionRetry = async (label, operation, retries = 2) => {
+  for (let attempt = 1; attempt <= retries + 1; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      const canRetry = isTransientTransactionError(error) && attempt <= retries;
+      if (!canRetry) throw error;
+
+      const backoffMs = attempt * 200;
+      console.warn(`[${label}] Reintentando por error transitorio (${attempt}/${retries + 1}) en ${backoffMs}ms`, {
+        code: error?.code,
+        message: error?.message,
+      });
+      await wait(backoffMs);
+    }
+  }
+};
+
 
 export const createOrderService = async ({ user, type, items }) => {
   console.log("createOrderService - Input:", { type, itemsCount: items?.length, userId: user?.id, userRol: user?.rol });
@@ -23,7 +58,8 @@ export const createOrderService = async ({ user, type, items }) => {
     throw new Error(`ORDER_TYPE_NOT_ALLOWED: El usuario con rol ${user.rol} no puede crear pedidos de tipo ${type}`);
   }
 
-  return prisma.$transaction(async (tx) => {
+  return runWithTransactionRetry("createOrderService", () =>
+    prisma.$transaction(async (tx) => {
     let total = 0;
     const orderItemsData = [];
 
@@ -94,7 +130,8 @@ export const createOrderService = async ({ user, type, items }) => {
         },
       },
     });
-  });
+    }, TX_OPTIONS)
+  );
 };
 
 
@@ -168,7 +205,8 @@ export const getAllOrdersService = async ({
 
 
 export const confirmOrderService = async (orderId) => {
-  const confirmedOrder = await prisma.$transaction(async (tx) => {
+  const confirmedOrder = await runWithTransactionRetry("confirmOrderService", () =>
+    prisma.$transaction(async (tx) => {
     const order = await tx.order.findUnique({
       where: { id: orderId },
       include: { items: true, user: true },
@@ -177,11 +215,15 @@ export const confirmOrderService = async (orderId) => {
     if (!order) throw new Error("ORDER_NOT_FOUND");
     if (order.status !== "PENDING") throw new Error("ORDER_NOT_PENDING");
 
-    for (const item of order.items) {
-      const product = await tx.product.findUnique({
-        where: { id: item.productId },
-      });
+    const productIds = [...new Set(order.items.map((item) => item.productId))];
+    const products = await tx.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, stock: true },
+    });
+    const productById = new Map(products.map((product) => [product.id, product]));
 
+    for (const item of order.items) {
+      const product = productById.get(item.productId);
       if (!product) throw new Error("PRODUCT_NOT_FOUND");
 
       if (order.type !== "MAYORISTA" && product.stock < item.quantity) {
@@ -205,7 +247,8 @@ export const confirmOrderService = async (orderId) => {
       data: { status: "CONFIRMED" },
       include: { items: true, user: true },
     });
-  });
+    }, TX_OPTIONS)
+  );
 
  
   return confirmedOrder;
