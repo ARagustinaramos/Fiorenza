@@ -242,7 +242,7 @@ export const getProducts = async (req, res) => {
         OFFSET ${offset}
       `,
       prisma.$queryRaw`
-        SELECT COUNT(DISTINCT p.id)::int AS count
+        SELECT COUNT(*)::int AS count
         FROM "Product" p
         ${joinWith(joins, " ")}
         ${whereSQL}
