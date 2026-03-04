@@ -2,6 +2,36 @@ import prisma from "../../config/prisma.js";
 import { Prisma } from "@prisma/client";
 import { validateProductInput } from "../../validators/product.validator.js";
 
+const PRODUCTS_LIST_CACHE_TTL_MS = 15_000;
+const PRODUCTS_LIST_CACHE_MAX_ITEMS = 20;
+const productsListCache = new Map();
+
+const getProductsListCache = (key) => {
+  const entry = productsListCache.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt <= Date.now()) {
+    productsListCache.delete(key);
+    return null;
+  }
+  return entry.value;
+};
+
+const setProductsListCache = (key, value) => {
+  if (productsListCache.size >= PRODUCTS_LIST_CACHE_MAX_ITEMS) {
+    const firstKey = productsListCache.keys().next().value;
+    if (firstKey) productsListCache.delete(firstKey);
+  }
+
+  productsListCache.set(key, {
+    value,
+    expiresAt: Date.now() + PRODUCTS_LIST_CACHE_TTL_MS,
+  });
+};
+
+const clearProductsListCache = () => {
+  productsListCache.clear();
+};
+
 const parseNumber = (value) => {
   if (value === null || value === undefined) return null;
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
@@ -88,6 +118,7 @@ export const createProduct = async (req, res) => {
         },
       });
 
+      clearProductsListCache();
       return res.status(200).json(product);
     }
 
@@ -102,6 +133,7 @@ export const createProduct = async (req, res) => {
       },
     });
 
+    clearProductsListCache();
     res.status(201).json(product);
   } catch (error) {
     console.error(error);
@@ -125,8 +157,10 @@ export const getProducts = async (req, res) => {
       limit = 20,
     } = req.query;
 
+    const queryText = String(q || "").trim();
     const limitNum = Number(limit);
-    const offset = (Number(page) - 1) * limitNum;
+    const pageNum = Number(page);
+    const offset = (pageNum - 1) * limitNum;
     const filters = [];
     const joins = [
       Prisma.sql`LEFT JOIN "Brand" m ON m.id = p."marcaId"`,
@@ -202,12 +236,12 @@ export const getProducts = async (req, res) => {
     } else if (novedad === "true") {
       filters.push(Prisma.sql`p."esNovedad" = true`);
     }
-    const words = q
+    const words = queryText
       .split(" ")
       .map(w => w.trim())
       .filter(Boolean);
 
-    if (q && words.length) {
+    if (queryText && words.length) {
       const conditions = words.map((word) => {
         const safeWord = escapeLike(word);
 
@@ -221,6 +255,26 @@ export const getProducts = async (req, res) => {
 
       const andBlock = joinWith(conditions, "AND");
       filters.push(Prisma.sql`(${andBlock})`);
+    }
+
+    const canUseWarmCache =
+      !queryText &&
+      !marca &&
+      !familia &&
+      !rubro &&
+      oferta !== "true" &&
+      novedad !== "true" &&
+      favorites !== "true" &&
+      !allowInactive &&
+      pageNum === 1;
+
+    const roleKey = req.user?.rol || "ANON";
+    const cacheKey = canUseWarmCache ? `${roleKey}|p:${pageNum}|l:${limitNum}` : null;
+    if (cacheKey) {
+      const cachedPayload = getProductsListCache(cacheKey);
+      if (cachedPayload) {
+        return res.json(cachedPayload);
+      }
     }
 
     const whereSQL = Prisma.sql`WHERE ${joinWith(filters, "AND")}`;
@@ -272,23 +326,29 @@ export const getProducts = async (req, res) => {
       return p;
     });
 
-    res.json({
+    const payload = {
       data: sanitizedProducts,
       pagination: {
-        page: Number(page),
-        limit: Number(limit),
+        page: pageNum,
+        limit: limitNum,
         total: Number(total),
-        pages: Math.ceil(Number(total) / Number(limit)),
+        pages: Math.ceil(Number(total) / limitNum),
       },
-    });
+    };
+
+    if (cacheKey) {
+      setProductsListCache(cacheKey, payload);
+    }
+
+    res.json(payload);
 
     const durationMs = Date.now() - startedAt;
-    if (durationMs > 800) {
+    if (durationMs > 2000) {
       console.warn("[getProducts] slow query", {
         durationMs,
-        page: Number(page),
-        limit: Number(limit),
-        hasQ: Boolean(q),
+        page: pageNum,
+        limit: limitNum,
+        hasQ: Boolean(queryText),
         words: words.length,
         marca: Boolean(marca),
         familia: Boolean(familia),
@@ -354,6 +414,7 @@ export const updateProduct = async (req, res) => {
       },
     });
 
+    clearProductsListCache();
     res.json(product);
   } catch (error) {
     console.error(error);
@@ -368,6 +429,7 @@ export const deleteProduct = async (req, res) => {
       data: { activo: false },
     });
 
+    clearProductsListCache();
     res.json({ message: "Producto desactivado" });
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -464,6 +526,7 @@ export const updateProductFlags = async (req, res) => {
       },
     });
 
+    clearProductsListCache();
     res.json(product);
   } catch (error) {
     console.error(error);
