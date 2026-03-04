@@ -132,7 +132,6 @@ export const getProducts = async (req, res) => {
       Prisma.sql`LEFT JOIN "Brand" m ON m.id = p."marcaId"`,
       Prisma.sql`LEFT JOIN "Family" f ON f.id = p."familiaId"`,
     ];
-    const countJoins = [];
 
     const includeFavorites = favorites === "true";
     if (includeFavorites) {
@@ -142,7 +141,6 @@ export const getProducts = async (req, res) => {
       }
       const favoriteJoin = Prisma.sql`JOIN "Favorite" fav ON fav."productId" = p.id AND fav."userId" = ${userId}`;
       joins.push(favoriteJoin);
-      countJoins.push(favoriteJoin);
     }
 
     const joinWith = (items, operator) => {
@@ -165,14 +163,12 @@ export const getProducts = async (req, res) => {
 
 
     if (marca) {
-      countJoins.push(Prisma.sql`LEFT JOIN "Brand" m ON m.id = p."marcaId"`);
       filters.push(
         Prisma.sql`immutable_unaccent(UPPER(m.nombre)) ILIKE '%' || immutable_unaccent(UPPER(${safeMarca})) || '%'`
       );
     }
 
     if (familia) {
-      countJoins.push(Prisma.sql`LEFT JOIN "Family" f ON f.id = p."familiaId"`);
       const familias = familia
         .split(",")
         .map((f) => escapeLike(f.trim()))
@@ -229,29 +225,21 @@ export const getProducts = async (req, res) => {
 
     const whereSQL = Prisma.sql`WHERE ${joinWith(filters, "AND")}`;
 
-    // Ejecutamos las consultas en paralelo para ganar velocidad
-    const [products, totalResult] = await Promise.all([
-      prisma.$queryRaw`
-        SELECT
-          p.*,
-          m.nombre AS marca,
-          f.nombre AS familia
-        FROM "Product" p
-        ${joinWith(joins, " ")}
-        ${whereSQL}
-        ORDER BY
-          (p.descripcion IS NULL OR p.descripcion = '') ASC,
-          p.descripcion ASC
-        LIMIT ${limitNum}
-        OFFSET ${offset}
-      `,
-      prisma.$queryRaw`
-        SELECT COUNT(*)::int AS count
-        FROM "Product" p
-        ${joinWith(countJoins, " ")}
-        ${whereSQL}
-      `,
-    ]);
+    const products = await prisma.$queryRaw`
+      SELECT
+        p.*,
+        m.nombre AS marca,
+        f.nombre AS familia,
+        COUNT(*) OVER()::int AS total_count
+      FROM "Product" p
+      ${joinWith(joins, " ")}
+      ${whereSQL}
+      ORDER BY
+        (p.descripcion IS NULL OR p.descripcion = '') ASC,
+        p.descripcion ASC
+      LIMIT ${limitNum}
+      OFFSET ${offset}
+    `;
 
     // Obtenemos las imágenes solo para los productos de esta página (mucho más rápido que JOIN masivo)
     const codigosInternos = products.map((p) => p.codigoInterno).filter(Boolean);
@@ -270,11 +258,12 @@ export const getProducts = async (req, res) => {
     }
 
     const rol = req.user?.rol;
-    const total = totalResult[0]?.count || 0;
+    const total = products[0]?.total_count || 0;
 
     const sanitizedProducts = products.map((p) => {
       // Asignamos las imágenes en memoria
       p.images = imagesMap[p.codigoInterno] || [];
+      delete p.total_count;
 
       if (rol !== "MAYORISTA") {
         delete p.stock;
