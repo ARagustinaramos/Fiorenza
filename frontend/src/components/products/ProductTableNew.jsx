@@ -495,7 +495,7 @@ export function ProductTableNew() {
         <div className="space-y-6">
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-3 sm:items-center items-stretch">
-              <div className="relative w-full flex-1 max-w-2xl pb-5">
+              <div className="relative w-full flex-1 max-w-2xl">
                 <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-red-400 w-5 h-5" />
                 <input
                   type="text"
@@ -517,9 +517,6 @@ export function ProductTableNew() {
                   </button>
                 )}
 
-                {isRefreshing && (
-                  <p className="absolute left-0 top-full mt-1 text-xs text-gray-500">Actualizando resultados...</p>
-                )}
               </div>
 
               {(selectedMarcas.size > 0 ||
@@ -537,6 +534,9 @@ export function ProductTableNew() {
                   </button>
                 )}
             </div>
+            {isRefreshing && (
+              <p className="text-xs text-gray-500">Actualizando resultados...</p>
+            )}
 
             <div className="relative z-20 bg-white border border-gray-200 rounded-xl p-3 sm:p-4 shadow-md space-y-3">
 
