@@ -69,7 +69,7 @@ export function ProductTableNew() {
     const timer = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
       setPage(1);
-    }, 300);
+    }, 500);
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
@@ -495,7 +495,7 @@ export function ProductTableNew() {
         <div className="space-y-6">
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-3 sm:items-center items-stretch">
-              <div className="relative w-full flex-1 max-w-2xl">
+              <div className="relative w-full flex-1 max-w-2xl pb-5">
                 <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-red-400 w-5 h-5" />
                 <input
                   type="text"
@@ -518,7 +518,7 @@ export function ProductTableNew() {
                 )}
 
                 {isRefreshing && (
-                  <p className="mt-2 text-xs text-gray-500">Actualizando resultados...</p>
+                  <p className="absolute left-0 top-full mt-1 text-xs text-gray-500">Actualizando resultados...</p>
                 )}
               </div>
 
