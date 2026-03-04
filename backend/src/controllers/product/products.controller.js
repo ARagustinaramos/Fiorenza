@@ -110,6 +110,7 @@ export const createProduct = async (req, res) => {
 };
 
 export const getProducts = async (req, res) => {
+  const startedAt = Date.now();
   try {
     const {
       q = "",
@@ -291,6 +292,23 @@ export const getProducts = async (req, res) => {
         pages: Math.ceil(Number(total) / Number(limit)),
       },
     });
+
+    const durationMs = Date.now() - startedAt;
+    if (durationMs > 800) {
+      console.warn("[getProducts] slow query", {
+        durationMs,
+        page: Number(page),
+        limit: Number(limit),
+        hasQ: Boolean(q),
+        words: words.length,
+        marca: Boolean(marca),
+        familia: Boolean(familia),
+        rubro: Boolean(rubro),
+        oferta: oferta === "true",
+        novedad: novedad === "true",
+        favorites: favorites === "true",
+      });
+    }
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Error al obtener productos" });

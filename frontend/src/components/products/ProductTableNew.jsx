@@ -516,11 +516,11 @@ export function ProductTableNew() {
                     <X className="w-5 h-5" />
                   </button>
                 )}
-              </div>
 
-              {isRefreshing && (
-                <span className="text-xs text-gray-500">Actualizando resultados...</span>
-              )}
+                {isRefreshing && (
+                  <p className="mt-2 text-xs text-gray-500">Actualizando resultados...</p>
+                )}
+              </div>
 
               {(selectedMarcas.size > 0 ||
                 selectedMarcaFiltro ||
