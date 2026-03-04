@@ -131,6 +131,7 @@ export const getProducts = async (req, res) => {
       Prisma.sql`LEFT JOIN "Brand" m ON m.id = p."marcaId"`,
       Prisma.sql`LEFT JOIN "Family" f ON f.id = p."familiaId"`,
     ];
+    const countJoins = [];
 
     const includeFavorites = favorites === "true";
     if (includeFavorites) {
@@ -138,9 +139,9 @@ export const getProducts = async (req, res) => {
       if (!userId) {
         return res.status(401).json({ error: "UNAUTHORIZED" });
       }
-      joins.push(
-        Prisma.sql`JOIN "Favorite" fav ON fav."productId" = p.id AND fav."userId" = ${userId}`
-      );
+      const favoriteJoin = Prisma.sql`JOIN "Favorite" fav ON fav."productId" = p.id AND fav."userId" = ${userId}`;
+      joins.push(favoriteJoin);
+      countJoins.push(favoriteJoin);
     }
 
     const joinWith = (items, operator) => {
@@ -163,12 +164,14 @@ export const getProducts = async (req, res) => {
 
 
     if (marca) {
+      countJoins.push(Prisma.sql`LEFT JOIN "Brand" m ON m.id = p."marcaId"`);
       filters.push(
         Prisma.sql`immutable_unaccent(UPPER(m.nombre)) ILIKE '%' || immutable_unaccent(UPPER(${safeMarca})) || '%'`
       );
     }
 
     if (familia) {
+      countJoins.push(Prisma.sql`LEFT JOIN "Family" f ON f.id = p."familiaId"`);
       const familias = familia
         .split(",")
         .map((f) => escapeLike(f.trim()))
@@ -244,7 +247,7 @@ export const getProducts = async (req, res) => {
       prisma.$queryRaw`
         SELECT COUNT(*)::int AS count
         FROM "Product" p
-        ${joinWith(joins, " ")}
+        ${joinWith(countJoins, " ")}
         ${whereSQL}
       `,
     ]);

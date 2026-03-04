@@ -22,9 +22,11 @@ export function ProductTableNew() {
   const router = useRouter();
   const dispatch = useDispatch();
   const abortControllerRef = useRef(null);
+  const hasLoadedOnceRef = useRef(false);
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [favorites, setFavorites] = useState([]);
   const [favoritesIds, setFavoritesIds] = useState(new Set());
@@ -212,12 +214,15 @@ export function ProductTableNew() {
     abortControllerRef.current = controller;
 
     try {
-      setLoading(true);
+      if (!hasLoadedOnceRef.current) setLoading(true);
+      else setIsRefreshing(true);
       const token = localStorage.getItem("token");
       if (showFavorites && !token) {
         setProducts([]);
         setTotalPages(1);
         setLoading(false);
+        setIsRefreshing(false);
+        hasLoadedOnceRef.current = true;
         return;
       }
 
@@ -255,12 +260,14 @@ export function ProductTableNew() {
       const data = await res.json();
       setProducts(data.data || []);
       setTotalPages(data.pagination?.pages || 1);
+      hasLoadedOnceRef.current = true;
     } catch (error) {
       if (error.name === "AbortError") return;
       console.error("Error cargando productos:", error);
     } finally {
       if (!controller.signal.aborted) {
         setLoading(false);
+        setIsRefreshing(false);
       }
     }
   }, [
@@ -280,6 +287,7 @@ export function ProductTableNew() {
 
   const clearFilters = () => {
     setSearchTerm("");
+    setDebouncedSearchTerm("");
     setSelectedMarcas(new Set());
     setSelectedMarcaFiltro("");
     setSelectedRubro("");
@@ -498,13 +506,21 @@ export function ProductTableNew() {
                 />
                 {searchTerm && (
                   <button
-                    onClick={() => setSearchTerm("")}
+                    onClick={() => {
+                      setSearchTerm("");
+                      setDebouncedSearchTerm("");
+                      setPage(1);
+                    }}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 )}
               </div>
+
+              {isRefreshing && (
+                <span className="text-xs text-gray-500">Actualizando resultados...</span>
+              )}
 
               {(selectedMarcas.size > 0 ||
                 selectedMarcaFiltro ||
