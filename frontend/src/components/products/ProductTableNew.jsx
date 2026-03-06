@@ -65,12 +65,9 @@ export function ProductTableNew() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-      setPage(1);
-    }, 500);
-    return () => clearTimeout(timer);
+  const applySearch = useCallback(() => {
+    setPage(1);
+    setDebouncedSearchTerm(searchTerm.trim());
   }, [searchTerm]);
 
   useEffect(() => {
@@ -502,6 +499,9 @@ export function ProductTableNew() {
                   placeholder="Buscar por código, descripción, marca..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") applySearch();
+                  }}
                   className="w-full pl-12 pr-10 py-3 border-2 border-gray-200 rounded-xl shadow-md focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-300 transition-all text-gray-700 placeholder:text-gray-400"
                 />
                 {searchTerm && (
@@ -518,6 +518,12 @@ export function ProductTableNew() {
                 )}
 
               </div>
+              <button
+                onClick={applySearch}
+                className="w-full sm:w-auto px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Buscar
+              </button>
 
               {(selectedMarcas.size > 0 ||
                 selectedMarcaFiltro ||
