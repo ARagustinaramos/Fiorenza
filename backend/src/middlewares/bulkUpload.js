@@ -1,14 +1,40 @@
 import fs from "fs";
+import os from "os";
 import path from "path";
 import multer from "multer";
 
 const maxFileSizeMb = Number(process.env.UPLOAD_MAX_MB || 50);
 const maxFileSize = maxFileSizeMb * 1024 * 1024;
 
-const uploadDir = path.join(process.cwd(), "uploads", "bulk");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+const ensureWritableDir = (dirPath) => {
+  try {
+    fs.mkdirSync(dirPath, { recursive: true });
+    fs.accessSync(dirPath, fs.constants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const resolveUploadDir = () => {
+  const candidates = [
+    process.env.BULK_UPLOAD_DIR,
+    path.join(process.cwd(), "uploads", "bulk"),
+    path.join(os.tmpdir(), "fiorenza", "bulk"),
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (ensureWritableDir(candidate)) {
+      return candidate;
+    }
+  }
+
+  throw new Error(
+    "No se encontro un directorio escribible para bulk upload. Configura BULK_UPLOAD_DIR."
+  );
+};
+
+const uploadDir = resolveUploadDir();
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadDir),
