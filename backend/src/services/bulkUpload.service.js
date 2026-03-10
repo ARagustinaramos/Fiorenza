@@ -32,6 +32,8 @@ const normalizeHeader = (text) => {
 
 const getCellValue = (cell) => {
   if (!cell) return "";
+  // Prefer displayed text when available (preserves leading zeros in CSV/Excel text formats)
+  if (typeof cell === "object" && cell.text !== undefined) return cell.text;
   if (cell.value !== undefined && cell.value !== null) {
     // Formula cells: ExcelJS stores { formula, result }
     if (typeof cell.value === "object" && cell.value.result !== undefined) {
@@ -47,7 +49,6 @@ const getCellValue = (cell) => {
     }
     return cell.value;
   }
-  if (typeof cell === "object" && cell.text !== undefined) return cell.text;
   return cell.toString();
 };
 
@@ -88,8 +89,11 @@ const HEADER_ALIASES = new Map([
   ["BAJA", ["BAJA"]],
 ]);
 
-const sanitizeText = (value) =>
-  value ? value.toString().replace(/\s+/g, " ").trim() : "";
+const sanitizeText = (value) => {
+  if (value === null || value === undefined) return "";
+  const text = value.toString().replace(/\s+/g, " ").trim();
+  return text;
+};
 
 const resolveCanonicalHeader = (rawHeader) => {
   const normalized = normalizeHeader(rawHeader);
