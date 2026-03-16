@@ -3,10 +3,19 @@ datasource db {
   url       = env("DATABASE_URL")
 }
 
+generator client {
+  provider = "prisma-client-js"
+}
+
 enum Role {
   ADMIN
   MAYORISTA
   MINORISTA
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
 }
 
 enum OrderType {
@@ -42,8 +51,12 @@ model User {
   rol         Role    @default(MAYORISTA)
   activo      Boolean @default(true)
   coeficiente Float   @default(0)
+  authProvider AuthProvider @default(LOCAL)
+  googleId     String? @unique
+  emailVerified Boolean @default(false)
 
   perfil Perfil?
+  perfilMinorista PerfilMinorista?
 
   favorites      Favorite[]
   orders         Order[]
@@ -65,6 +78,17 @@ model Perfil {
   cargo            String?
   coeficienteVenta Float   @default(0)
   avatarUrl        String?
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+model PerfilMinorista {
+  id             String  @id @default(uuid())
+  nombreCompleto String
+  telefono       String?
+  direccion      String?
+  dni            String?
 
   userId String @unique
   user   User   @relation(fields: [userId], references: [id])

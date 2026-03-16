@@ -1,6 +1,13 @@
 import express from "express";
 import rateLimit from "express-rate-limit";
-import { register, login, forgotPassword, resetPassword } from "../controllers/auth.controller.js";
+import {
+  register,
+  registerMinorista,
+  login,
+  loginWithGoogle,
+  forgotPassword,
+  resetPassword,
+} from "../controllers/auth.controller.js";
 import { auth } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
@@ -14,7 +21,9 @@ const authLimiter = rateLimit({
 });
 
 router.post("/register", authLimiter, register);
+router.post("/register-minorista", authLimiter, registerMinorista);
 router.post("/login", authLimiter, login);
+router.post("/google", authLimiter, loginWithGoogle);
 
 router.get("/me", auth, (req, res) => {
     res.json({
