@@ -237,6 +237,9 @@ export function ProductTableNew() {
       if (showOfertas) params.append("oferta", "true");
       if (showNovedades) params.append("novedad", "true");
       if (showFavorites) params.append("favorites", "true");
+      const catalogo =
+        user?.rol?.toUpperCase() === "MINORISTA" ? "MINORISTA" : "MAYORISTA";
+      params.set("catalogo", catalogo);
 
       const headers = {};
       if (token) headers.Authorization = `Bearer ${token}`;
@@ -300,9 +303,11 @@ export function ProductTableNew() {
         const apiUrl =
           process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
+        const catalogo =
+          user?.rol?.toUpperCase() === "MINORISTA" ? "MINORISTA" : "MAYORISTA";
         const [marcasRes, rubrosRes] = await Promise.all([
-          fetch(`${apiUrl}/products/filters/marcas`),
-          fetch(`${apiUrl}/products/filters/rubros`),
+          fetch(`${apiUrl}/products/filters/marcas?catalogo=${catalogo}`),
+          fetch(`${apiUrl}/products/filters/rubros?catalogo=${catalogo}`),
         ]);
 
         if (marcasRes.ok) setMarcas(await marcasRes.json());

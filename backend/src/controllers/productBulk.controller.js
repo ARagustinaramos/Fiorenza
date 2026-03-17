@@ -15,7 +15,11 @@ export const bulkUpload = async (req, res) => {
       return res.status(400).json({ error: "Archivo requerido" });
     }
 
-    const { mode = "upsert" } = req.body;
+    const { mode = "upsert", catalogo } = req.body;
+    const catalogoValue =
+      typeof catalogo === "string" && catalogo.toUpperCase() === "MINORISTA"
+        ? "MINORISTA"
+        : "MAYORISTA";
 
     const job = await prisma.bulkUploadJob.create({
       data: {
@@ -33,6 +37,7 @@ export const bulkUpload = async (req, res) => {
         BULK_UPLOAD_JOB_ID: job.id,
         BULK_UPLOAD_FILE_PATH: req.file.path,
         BULK_UPLOAD_MODE: mode,
+        BULK_UPLOAD_CATALOGO: catalogoValue,
       },
       stdio: "ignore",
       cwd: process.cwd(),

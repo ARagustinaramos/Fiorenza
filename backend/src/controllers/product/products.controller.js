@@ -93,6 +93,12 @@ export const createProduct = async (req, res) => {
     }
 
     // Verificar si ya existe 
+    const catalogoValue =
+      typeof req.body.catalogo === "string" &&
+      req.body.catalogo.toUpperCase() === "MINORISTA"
+        ? "MINORISTA"
+        : "MAYORISTA";
+
     const existingProduct = await prisma.product.findUnique({
       where: { codigoInterno: req.body.codigoInterno },
     });
@@ -109,6 +115,7 @@ export const createProduct = async (req, res) => {
         where: { id: existingProduct.id },
         data: {
           ...req.body,
+          catalogo: catalogoValue,
           precioConIva: parseNumber(req.body.precioConIva),
           precioMayoristaSinIva: req.body.precioMayoristaSinIva !== undefined && req.body.precioMayoristaSinIva !== ""
             ? parseNumber(req.body.precioMayoristaSinIva)
@@ -125,6 +132,7 @@ export const createProduct = async (req, res) => {
     const product = await prisma.product.create({
       data: {
         ...req.body,
+        catalogo: catalogoValue,
         precioConIva: parseNumber(req.body.precioConIva),
         precioMayoristaSinIva: req.body.precioMayoristaSinIva !== undefined && req.body.precioMayoristaSinIva !== ""
           ? parseNumber(req.body.precioMayoristaSinIva)
@@ -144,18 +152,19 @@ export const createProduct = async (req, res) => {
 export const getProducts = async (req, res) => {
   const startedAt = Date.now();
   try {
-    const {
-      q = "",
-      marca,
-      familia,
-      rubro,
-      oferta,
-      novedad,
-      favorites,
-      includeInactive,
-      page = 1,
-      limit = 20,
-    } = req.query;
+  const {
+    q = "",
+    marca,
+    familia,
+    rubro,
+    oferta,
+    novedad,
+    favorites,
+    includeInactive,
+    catalogo,
+    page = 1,
+    limit = 20,
+  } = req.query;
 
     const queryText = String(q || "").trim();
     const limitNum = Number(limit);
@@ -193,6 +202,21 @@ export const getProducts = async (req, res) => {
     const allowInactive = includeInactive === "true" && isAdmin;
     if (!allowInactive) {
       filters.push(Prisma.sql`p.activo = true`);
+    }
+
+    let effectiveCatalogo = "MAYORISTA";
+    if (typeof catalogo === "string" && catalogo.toUpperCase() === "MINORISTA") {
+      effectiveCatalogo = "MINORISTA";
+    } else if (typeof catalogo === "string" && catalogo.toUpperCase() === "MAYORISTA") {
+      effectiveCatalogo = "MAYORISTA";
+    } else if (typeof catalogo === "string" && catalogo.toUpperCase() === "ALL" && isAdmin) {
+      effectiveCatalogo = "ALL";
+    } else if (req.user?.rol === "MINORISTA") {
+      effectiveCatalogo = "MINORISTA";
+    }
+
+    if (effectiveCatalogo !== "ALL") {
+      filters.push(Prisma.sql`p.catalogo = ${effectiveCatalogo}`);
     }
 
 
@@ -269,7 +293,9 @@ export const getProducts = async (req, res) => {
       pageNum === 1;
 
     const roleKey = req.user?.rol || "ANON";
-    const cacheKey = canUseWarmCache ? `${roleKey}|p:${pageNum}|l:${limitNum}` : null;
+    const cacheKey = canUseWarmCache
+      ? `${roleKey}|c:${effectiveCatalogo}|p:${pageNum}|l:${limitNum}`
+      : null;
     if (cacheKey) {
       const cachedPayload = getProductsListCache(cacheKey);
       if (cachedPayload) {
@@ -367,6 +393,19 @@ export const getProducts = async (req, res) => {
 
 export const getProductById = async (req, res) => {
   try {
+    const { catalogo } = req.query;
+    const isAdmin = req.user?.rol === "ADMIN";
+    let effectiveCatalogo = "MAYORISTA";
+    if (typeof catalogo === "string" && catalogo.toUpperCase() === "MINORISTA") {
+      effectiveCatalogo = "MINORISTA";
+    } else if (typeof catalogo === "string" && catalogo.toUpperCase() === "MAYORISTA") {
+      effectiveCatalogo = "MAYORISTA";
+    } else if (typeof catalogo === "string" && catalogo.toUpperCase() === "ALL" && isAdmin) {
+      effectiveCatalogo = "ALL";
+    } else if (req.user?.rol === "MINORISTA") {
+      effectiveCatalogo = "MINORISTA";
+    }
+
     const product = await prisma.product.findUnique({
       where: { id: req.params.id },
       include: { images: true },
@@ -376,7 +415,11 @@ export const getProductById = async (req, res) => {
       return res.status(404).json({ error: "Producto no encontrado" });
     }
 
-    if (req.user.rol === "MINORISTA") {
+    if (effectiveCatalogo !== "ALL" && product.catalogo !== effectiveCatalogo) {
+      return res.status(404).json({ error: "Producto no encontrado" });
+    }
+
+    if (req.user?.rol === "MINORISTA") {
       delete product.stock;
     }
 
@@ -397,10 +440,19 @@ export const updateProduct = async (req, res) => {
       });
     }
 
+    const catalogoValue =
+      typeof req.body.catalogo === "string" &&
+      req.body.catalogo.toUpperCase() === "MINORISTA"
+        ? "MINORISTA"
+        : req.body.catalogo
+        ? "MAYORISTA"
+        : undefined;
+
     const product = await prisma.product.update({
       where: { id: req.params.id },
       data: {
         ...req.body,
+        ...(catalogoValue ? { catalogo: catalogoValue } : {}),
         precioConIva: req.body.precioConIva !== undefined
           ? parseNumber(req.body.precioConIva)
           : undefined,
@@ -438,8 +490,24 @@ export const deleteProduct = async (req, res) => {
 
 export const getOfferProducts = async (req, res) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 20, catalogo } = req.query;
+    const isAdmin = req.user?.rol === "ADMIN";
+    let effectiveCatalogo = "MAYORISTA";
+    if (typeof catalogo === "string" && catalogo.toUpperCase() === "MINORISTA") {
+      effectiveCatalogo = "MINORISTA";
+    } else if (typeof catalogo === "string" && catalogo.toUpperCase() === "MAYORISTA") {
+      effectiveCatalogo = "MAYORISTA";
+    } else if (typeof catalogo === "string" && catalogo.toUpperCase() === "ALL" && isAdmin) {
+      effectiveCatalogo = "ALL";
+    } else if (req.user?.rol === "MINORISTA") {
+      effectiveCatalogo = "MINORISTA";
+    }
     const offset = (page - 1) * limit;
+
+    const catalogoFilter =
+      effectiveCatalogo === "ALL"
+        ? Prisma.sql``
+        : Prisma.sql`AND p.catalogo = ${effectiveCatalogo}`;
 
     const products = await prisma.$queryRaw`
       SELECT
@@ -451,6 +519,7 @@ export const getOfferProducts = async (req, res) => {
       JOIN "Family" f ON f.id = p."familiaId"
       WHERE p."esOferta" = true
         AND p.activo = true
+        ${catalogoFilter}
       ORDER BY p."updatedAt" DESC
       LIMIT ${Number(limit)}
       OFFSET ${offset}
@@ -465,8 +534,24 @@ export const getOfferProducts = async (req, res) => {
 
 export const getNewProducts = async (req, res) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 20, catalogo } = req.query;
+    const isAdmin = req.user?.rol === "ADMIN";
+    let effectiveCatalogo = "MAYORISTA";
+    if (typeof catalogo === "string" && catalogo.toUpperCase() === "MINORISTA") {
+      effectiveCatalogo = "MINORISTA";
+    } else if (typeof catalogo === "string" && catalogo.toUpperCase() === "MAYORISTA") {
+      effectiveCatalogo = "MAYORISTA";
+    } else if (typeof catalogo === "string" && catalogo.toUpperCase() === "ALL" && isAdmin) {
+      effectiveCatalogo = "ALL";
+    } else if (req.user?.rol === "MINORISTA") {
+      effectiveCatalogo = "MINORISTA";
+    }
     const offset = (page - 1) * limit;
+
+    const catalogoFilter =
+      effectiveCatalogo === "ALL"
+        ? Prisma.sql``
+        : Prisma.sql`AND p.catalogo = ${effectiveCatalogo}`;
 
     const products = await prisma.$queryRaw`
       SELECT
@@ -478,6 +563,7 @@ export const getNewProducts = async (req, res) => {
       JOIN "Family" f ON f.id = p."familiaId"
       WHERE p."esNovedad" = true
         AND p.activo = true
+        ${catalogoFilter}
       ORDER BY p."createdAt" DESC
       LIMIT ${Number(limit)}
       OFFSET ${offset}
@@ -492,6 +578,24 @@ export const getNewProducts = async (req, res) => {
 
 export const getFeaturedProducts = async (req, res) => {
   try {
+    const { catalogo } = req.query;
+    const isAdmin = req.user?.rol === "ADMIN";
+    let effectiveCatalogo = "MAYORISTA";
+    if (typeof catalogo === "string" && catalogo.toUpperCase() === "MINORISTA") {
+      effectiveCatalogo = "MINORISTA";
+    } else if (typeof catalogo === "string" && catalogo.toUpperCase() === "MAYORISTA") {
+      effectiveCatalogo = "MAYORISTA";
+    } else if (typeof catalogo === "string" && catalogo.toUpperCase() === "ALL" && isAdmin) {
+      effectiveCatalogo = "ALL";
+    } else if (req.user?.rol === "MINORISTA") {
+      effectiveCatalogo = "MINORISTA";
+    }
+
+    const catalogoFilter =
+      effectiveCatalogo === "ALL"
+        ? Prisma.sql``
+        : Prisma.sql`AND p.catalogo = ${effectiveCatalogo}`;
+
     const products = await prisma.$queryRaw`
       SELECT
         p.*,
@@ -502,6 +606,7 @@ export const getFeaturedProducts = async (req, res) => {
       JOIN "Family" f ON f.id = p."familiaId"
       WHERE p.activo = true
         AND (p."esOferta" = true OR p."esNovedad" = true)
+        ${catalogoFilter}
       ORDER BY p."updatedAt" DESC
       LIMIT 20
     `;
@@ -536,11 +641,29 @@ export const updateProductFlags = async (req, res) => {
 
 export const getMarcasFiltro = async (req, res) => {
   try {
+    const { catalogo } = req.query;
+    const isAdmin = req.user?.rol === "ADMIN";
+    let effectiveCatalogo = "MAYORISTA";
+    if (typeof catalogo === "string" && catalogo.toUpperCase() === "MINORISTA") {
+      effectiveCatalogo = "MINORISTA";
+    } else if (typeof catalogo === "string" && catalogo.toUpperCase() === "MAYORISTA") {
+      effectiveCatalogo = "MAYORISTA";
+    } else if (typeof catalogo === "string" && catalogo.toUpperCase() === "ALL" && isAdmin) {
+      effectiveCatalogo = "ALL";
+    } else if (req.user?.rol === "MINORISTA") {
+      effectiveCatalogo = "MINORISTA";
+    }
+    const catalogoFilter =
+      effectiveCatalogo === "ALL"
+        ? Prisma.sql``
+        : Prisma.sql`AND p.catalogo = ${effectiveCatalogo}`;
+
     const marcas = await prisma.$queryRaw`
       SELECT DISTINCT UPPER(m.nombre) AS nombre
       FROM "Brand" m
       JOIN "Product" p ON p."marcaId" = m.id
       WHERE p.activo = true
+        ${catalogoFilter}
       ORDER BY nombre
     `;
 
@@ -553,11 +676,29 @@ export const getMarcasFiltro = async (req, res) => {
 
 export const getRubrosFiltro = async (req, res) => {
   try {
+    const { catalogo } = req.query;
+    const isAdmin = req.user?.rol === "ADMIN";
+    let effectiveCatalogo = "MAYORISTA";
+    if (typeof catalogo === "string" && catalogo.toUpperCase() === "MINORISTA") {
+      effectiveCatalogo = "MINORISTA";
+    } else if (typeof catalogo === "string" && catalogo.toUpperCase() === "MAYORISTA") {
+      effectiveCatalogo = "MAYORISTA";
+    } else if (typeof catalogo === "string" && catalogo.toUpperCase() === "ALL" && isAdmin) {
+      effectiveCatalogo = "ALL";
+    } else if (req.user?.rol === "MINORISTA") {
+      effectiveCatalogo = "MINORISTA";
+    }
+    const catalogoFilter =
+      effectiveCatalogo === "ALL"
+        ? Prisma.sql``
+        : Prisma.sql`AND p.catalogo = ${effectiveCatalogo}`;
+
     const rubros = await prisma.$queryRaw`
       SELECT DISTINCT UPPER(p.rubro) AS rubro
       FROM "Product" p
       WHERE p.activo = true
         AND p.rubro IS NOT NULL
+        ${catalogoFilter}
       ORDER BY rubro
     `;
 

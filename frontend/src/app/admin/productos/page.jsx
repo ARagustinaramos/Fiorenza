@@ -20,6 +20,7 @@ function Spinner({ size = 24 }) {
 export default function AdminProductos() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [catalogo, setCatalogo] = useState("MAYORISTA");
 
   // Estados separados para cada modo
   const [csvFileUpdate, setCsvFileUpdate] = useState(null);
@@ -45,6 +46,7 @@ export default function AdminProductos() {
     "RAR_NOT_SUPPORTED_USE_ZIP": "RAR no esta soportado. Usa un archivo .zip",
     "INVALID_ARCHIVE_FORMAT_USE_ZIP": "Formato invalido. Solo se admite ZIP para archivos comprimidos",
     "INVALID_IMAGE_FILE": "Uno o mas archivos no son imagenes validas",
+    "CODE_EXISTS_OTHER_CATALOG": "El código ya existe en el otro catálogo",
   };
 
   const buildProgressMessage = (details) => {
@@ -90,6 +92,7 @@ export default function AdminProductos() {
       const formData = new FormData();
       formData.append("file", csvFile);
       formData.append("mode", mode);
+      formData.append("catalogo", catalogo);
 
       const res = await fetch(`${apiUrl}/products/bulk-upload`, {
         method: "POST",
@@ -131,7 +134,7 @@ export default function AdminProductos() {
               }
 
               if (statusData.errorsCount > 0) {
-                message += ` (âš ï¸ ${statusData.errorsCount} errores encontrados)`;
+                message += ` ( ${statusData.errorsCount} errores encontrados)`;
               }
 
               setUploadResult({
@@ -328,6 +331,20 @@ export default function AdminProductos() {
     <div className="flex min-h-screen bg-gray-50">
       <main className="flex-1 p-8">
         <h1 className="text-3xl font-bold mb-8">Actualizar productos</h1>
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <label className="text-sm font-medium text-gray-700">Catálogo</label>
+          <select
+            value={catalogo}
+            onChange={(e) => setCatalogo(e.target.value)}
+            className="px-3 py-2 border rounded-lg bg-white text-sm"
+          >
+            <option value="MAYORISTA">Mayorista</option>
+            <option value="MINORISTA">Minorista</option>
+          </select>
+          <span className="text-xs text-gray-500">
+            El catálogo seleccionado se aplica a las cargas masivas.
+          </span>
+        </div>
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
           <p className="text-sm text-blue-800">
             Recordá que para cualquier modo podés usar archivos Excel (.xlsx/.xls) o CSV. Para archivos grandes, recomendamos CSV por mayor velocidad.

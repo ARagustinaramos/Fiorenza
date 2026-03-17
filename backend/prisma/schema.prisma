@@ -44,6 +44,11 @@ enum BulkUploadStatus {
   FAILED
 }
 
+enum Catalogo {
+  MAYORISTA
+  MINORISTA
+}
+
 model User {
   id          String  @id @default(uuid())
   email       String  @unique
@@ -154,6 +159,7 @@ model Product {
 
   rubro String?
   activo Boolean @default(true)
+  catalogo Catalogo @default(MAYORISTA)
 
   esOferta Boolean @default(false)
   esNovedad Boolean @default(false)
@@ -174,6 +180,7 @@ model Product {
   @@index([rubro])
   @@index([activo])
   @@index([precioConIva])
+  @@index([catalogo])
 
   @@index([marcaId, familiaId])
   @@index([activo, precioConIva])
