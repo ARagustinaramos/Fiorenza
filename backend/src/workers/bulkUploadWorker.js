@@ -6,7 +6,6 @@ import { runBulkUpload } from "../services/bulkUpload.service.js";
 const jobId = process.env.BULK_UPLOAD_JOB_ID || process.argv[2];
 const filePath = process.env.BULK_UPLOAD_FILE_PATH;
 const mode = process.env.BULK_UPLOAD_MODE || "upsert";
-const catalogo = process.env.BULK_UPLOAD_CATALOGO || "MAYORISTA";
 
 const safeUnlink = async (target) => {
   if (!target) return;
@@ -29,7 +28,6 @@ const run = async () => {
     const result = await runBulkUpload({
       filePath,
       mode,
-      catalogo,
       onProgress: async (progress) => {
         try {
           await prisma.bulkUploadJob.update({

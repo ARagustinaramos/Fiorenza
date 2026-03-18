@@ -160,6 +160,7 @@ model Product {
   rubro String?
   activo Boolean @default(true)
   catalogo Catalogo @default(MAYORISTA)
+  web Boolean @default(false)
 
   esOferta Boolean @default(false)
   esNovedad Boolean @default(false)
@@ -181,6 +182,7 @@ model Product {
   @@index([activo])
   @@index([precioConIva])
   @@index([catalogo])
+  @@index([web])
 
   @@index([marcaId, familiaId])
   @@index([activo, precioConIva])

@@ -77,6 +77,7 @@ const HEADER_ALIASES = new Map([
   ["NOVEDADES", ["NOVEDADES"]],
   ["OFERTAS", ["OFERTAS"]],
   ["BAJA", ["BAJA"]],
+  ["WEB", ["WEB"]],
 ]);
 
 const sanitizeText = (value) => {
@@ -151,6 +152,7 @@ const mapExcelToProduct = (row) => ({
   esNovedad: normalizeBoolean(row["NOVEDADES"]),
   esOferta: normalizeBoolean(row["OFERTAS"]),
   baja: normalizeBoolean(row["BAJA"]),
+  web: normalizeBoolean(row["WEB"]),
 });
 
 // Helper para sincronizar Marcas y Familias en lote
@@ -291,12 +293,10 @@ export const runBulkUpload = async ({
   filePath,
   mode = "upsert",
   onProgress,
-  catalogo = "MAYORISTA",
 }) => {
   if (mode === "replace") {
     await withRetry(() =>
       prisma.product.updateMany({
-      where: { catalogo },
       data: { activo: false },
       })
     );
@@ -349,13 +349,13 @@ export const runBulkUpload = async ({
         }
       }
 
-      if (validDeletes.length > 0) {
-        const result = await prisma.product.updateMany({
-          where: { codigoInterno: { in: validDeletes }, catalogo },
-          data: { activo: false },
-        });
-        inserted += result.count;
-      }
+          if (validDeletes.length > 0) {
+            const result = await prisma.product.updateMany({
+              where: { codigoInterno: { in: validDeletes } },
+              data: { activo: false },
+            });
+            inserted += result.count;
+          }
 
       notifyProgress();
       if (BATCH_DELAY_MS > 0) {
@@ -371,25 +371,12 @@ export const runBulkUpload = async ({
     const codigos = batch.map((b) => b.item.codigoInterno).filter(Boolean);
     const existingProducts = await withRetry(() =>
       prisma.product.findMany({
-        where: { codigoInterno: { in: codigos }, catalogo },
+        where: { codigoInterno: { in: codigos } },
       })
     );
 
     const productMap = new Map();
     existingProducts.forEach((p) => productMap.set(p.codigoInterno, p));
-
-    const otherCatalogProducts = await withRetry(() =>
-      prisma.product.findMany({
-        where: {
-          codigoInterno: { in: codigos },
-          catalogo: { not: catalogo },
-        },
-        select: { codigoInterno: true, catalogo: true },
-      })
-    );
-    const conflictCodes = new Set(
-      otherCatalogProducts.map((p) => p.codigoInterno)
-    );
 
     const toCreate = [];
     const toUpdate = [];
@@ -411,16 +398,6 @@ export const runBulkUpload = async ({
         const familia = familyCache.get(item.familiaNombre);
         const existingProduct = productMap.get(item.codigoInterno);
 
-        if (conflictCodes.has(item.codigoInterno)) {
-          perRowErrors.push({
-            status: "error",
-            sheet: worksheetName,
-            row: rowNumber,
-            error: ["CODE_EXISTS_OTHER_CATALOG"],
-          });
-          return;
-        }
-
         const commonData = {
           codigoInterno: item.codigoInterno,
           codigoOriginal: item.codigoOriginal,
@@ -437,7 +414,7 @@ export const runBulkUpload = async ({
           esOferta: item.esOferta,
           esNovedad: item.esNovedad,
           activo: true,
-          catalogo,
+          web: item.web,
         };
 
         if (mode === "update") {
