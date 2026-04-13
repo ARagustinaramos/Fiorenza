@@ -13,7 +13,6 @@ import favoritesRoutes from "./src/routes/favorites.js";
 import bannerRoutes from "./src/routes/banner.routes.js";
 import downloadsRoutes from "./src/routes/downloads.routes.js";
 import cartRoutes from "./src/routes/cart.js";
-import paymentsRoutes from "./src/routes/payments.js";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -130,7 +129,6 @@ app.use("/api/products", productsRoutes);
 // Rutas de pedidos
 app.use("/api/orders", ordersRoutes);
 app.use("/api/cart", cartRoutes);
-app.use("/api/payments", paymentsRoutes);
 
 // Rutas de favoritos
 app.use("/api/favorites", favoritesRoutes);
