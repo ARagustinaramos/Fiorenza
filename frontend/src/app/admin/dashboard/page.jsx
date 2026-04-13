@@ -40,18 +40,23 @@ export default function AdminDashboard() {
         const productsData = await productsRes.json();
         const totalProductos = productsData.pagination?.total || 0;
 
-        const lowStockRes = await fetch(
-          `${apiUrl}/products/low-stock?threshold=0&limit=20`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+        let lowStockData = { count: 0, items: [] };
+        try {
+          const lowStockRes = await fetch(
+            `${apiUrl}/products/low-stock?threshold=0&limit=20`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (lowStockRes.ok) {
+            lowStockData = await lowStockRes.json();
           }
-        );
-        if (!lowStockRes.ok) {
-          throw new Error("No se pudo cargar el stock bajo");
+        } catch {
+          lowStockData = { count: 0, items: [] };
         }
-        const lowStockData = await lowStockRes.json();
 
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
