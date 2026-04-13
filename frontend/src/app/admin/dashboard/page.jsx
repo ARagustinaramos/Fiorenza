@@ -8,9 +8,12 @@ export default function AdminDashboard() {
     totalProductos: 0,
     pedidosMes: 0,
     clientesActivos: 0,
+    clientesMayoristas: 0,
+    clientesMinoristas: 0,
     ventasMes: 0,
   });
   const [recentOrders, setRecentOrders] = useState([]);
+  const [lowStock, setLowStock] = useState({ count: 0, items: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -31,15 +34,32 @@ export default function AdminDashboard() {
             Authorization: `Bearer ${token}`,
           },
         });
+        if (!productsRes.ok) {
+          throw new Error("No se pudieron cargar los productos");
+        }
         const productsData = await productsRes.json();
         const totalProductos = productsData.pagination?.total || 0;
+
+        const lowStockRes = await fetch(
+          `${apiUrl}/products/low-stock?threshold=0&limit=20`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        if (!lowStockRes.ok) {
+          throw new Error("No se pudo cargar el stock bajo");
+        }
+        const lowStockData = await lowStockRes.json();
 
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
         const ordersParams = new URLSearchParams({
           startDate: startOfMonth.toISOString(),
-          limit: 1000,
+          limit: "1000",
+          summary: "true",
         });
 
         const ordersRes = await fetch(`${apiUrl}/orders?${ordersParams.toString()}`, {
@@ -47,6 +67,9 @@ export default function AdminDashboard() {
             Authorization: `Bearer ${token}`,
           },
         });
+        if (!ordersRes.ok) {
+          throw new Error("No se pudieron cargar los pedidos");
+        }
         const ordersData = await ordersRes.json();
         const orders = ordersData.data || [];
 
@@ -62,18 +85,33 @@ export default function AdminDashboard() {
             Authorization: `Bearer ${token}`,
           },
         });
+        if (!usersRes.ok) {
+          throw new Error("No se pudieron cargar los usuarios");
+        }
         const usersData = await usersRes.json();
         const users = Array.isArray(usersData) ? usersData : [];
         const clientesActivos = users.filter((user) => user.activo).length;
+        const clientesMayoristas = users.filter(
+          (user) => user.activo && user.rol === "MAYORISTA"
+        ).length;
+        const clientesMinoristas = users.filter(
+          (user) => user.activo && user.rol === "MINORISTA"
+        ).length;
 
         setStats({
           totalProductos,
           pedidosMes,
           clientesActivos,
+          clientesMayoristas,
+          clientesMinoristas,
           ventasMes,
         });
 
         setRecentOrders(orders.slice(0, 4));
+        setLowStock({
+          count: Number(lowStockData?.count || 0),
+          items: Array.isArray(lowStockData?.items) ? lowStockData.items : [],
+        });
       } catch (err) {
         console.error("Error cargando datos del dashboard:", err);
         setError(err.message);
@@ -134,6 +172,7 @@ export default function AdminDashboard() {
       icon: Users,
       color: "bg-purple-500",
       change: "",
+      detail: `Mayoristas ${stats.clientesMayoristas} · Minoristas ${stats.clientesMinoristas}`,
     },
     {
       label: "Ventas del Mes",
@@ -201,6 +240,9 @@ export default function AdminDashboard() {
                   {stat.value}
                 </h3>
                 <p className="text-sm text-gray-600">{stat.label}</p>
+                {stat.detail && (
+                  <p className="text-xs text-gray-500 mt-1">{stat.detail}</p>
+                )}
               </div>
             );
           })}
@@ -214,21 +256,80 @@ export default function AdminDashboard() {
             {recentOrders.length === 0 ? (
               <p className="text-gray-500 text-center py-4">No hay actividad reciente</p>
             ) : (
-              recentOrders.map((order) => (
-                <div key={order.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
-                  <div>
-                    <p className="font-medium text-gray-900">
-                      Pedido #{order.id.slice(0, 8).toUpperCase()}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {order.user?.perfil?.nombreCompleto || order.user?.email || "Cliente"} - {formatCurrency(order.totalAmount)}
-                    </p>
+              recentOrders.map((order) => {
+                const typeLabel =
+                  order.type === "MAYORISTA"
+                    ? "Mayorista"
+                    : order.type === "MINORISTA"
+                    ? "Minorista"
+                    : order.type || "-";
+                const typeBadgeClass =
+                  order.type === "MAYORISTA"
+                    ? "bg-purple-100 text-purple-700"
+                    : order.type === "MINORISTA"
+                    ? "bg-red-100 text-red-700"
+                    : "bg-gray-100 text-gray-700";
+
+                return (
+                  <div key={order.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        Pedido #{order.id.slice(0, 8).toUpperCase()}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
+                         <span>
+                           {order.user?.perfil?.nombreCompleto ||
+                            order.user?.perfilMinorista?.nombreCompleto ||
+                            order.user?.email ||
+                            "Cliente"}
+                         </span>
+                        <span className="text-gray-300">•</span>
+                        <span>{formatCurrency(order.totalAmount)}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeBadgeClass}`}>
+                          {typeLabel}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-sm text-gray-500">{formatDate(order.createdAt)}</span>
                   </div>
-                  <span className="text-sm text-gray-500">{formatDate(order.createdAt)}</span>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
+        </div>
+
+        {/* Stock bajo */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-6">
+          <h2 className="text-xl font-bold mb-4">Stock bajo (web)</h2>
+          {lowStock.count === 0 ? (
+            <p className="text-gray-500">No hay productos sin stock.</p>
+          ) : (
+            <>
+              <p className="text-sm text-gray-600 mb-4">
+                Productos sin stock: <strong>{lowStock.count}</strong>
+              </p>
+              <div className="max-h-56 overflow-y-auto border border-gray-100 rounded-lg">
+                {lowStock.items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between px-4 py-2 border-b border-gray-100 last:border-0"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {item.codigoInterno}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {item.descripcion || "Sin descripción"}
+                      </p>
+                    </div>
+                    <span className="text-xs font-medium text-red-600">
+                      Stock {Number(item.stock || 0)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </main>
     </div>

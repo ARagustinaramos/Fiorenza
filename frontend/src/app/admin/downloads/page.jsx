@@ -11,6 +11,17 @@ export default function AdminDownloadsPage() {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      throw new Error("Sesión expirada");
+    }
+
+    return {
+      Authorization: `Bearer ${token}`,
+    };
+  };
+
   const fetchFiles = async () => {
     try {
       const res = await fetch(`${API}/downloads`);
@@ -36,6 +47,7 @@ export default function AdminDownloadsPage() {
 
       const res = await fetch(`${API}/downloads`, {
         method: "POST",
+        headers: getAuthHeaders(),
         body: formData,
       });
 
@@ -56,10 +68,12 @@ export default function AdminDownloadsPage() {
     try {
       const res = await fetch(`${API}/downloads/${id}`, {
         method: "DELETE",
+        headers: getAuthHeaders(),
       });
       if (!res.ok) throw new Error("Error al eliminar");
       fetchFiles();
     } catch (error) {
+      console.error(error);
       alert("No se pudo eliminar el archivo.");
     }
   };

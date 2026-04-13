@@ -153,13 +153,33 @@ export const getAllOrdersService = async ({
   status,
   type,
   paymentStatus,
+  startDate,
+  endDate,
+  summary = false,
   page = 1,
   limit = 20,
 }) => {
+  const createdAt = {};
+
+  if (startDate) {
+    const parsedStartDate = new Date(startDate);
+    if (!Number.isNaN(parsedStartDate.getTime())) {
+      createdAt.gte = parsedStartDate;
+    }
+  }
+
+  if (endDate) {
+    const parsedEndDate = new Date(endDate);
+    if (!Number.isNaN(parsedEndDate.getTime())) {
+      createdAt.lte = parsedEndDate;
+    }
+  }
+
   const where = {
     ...(status && { status }),
     ...(type && { type }),
     ...(paymentStatus && { paymentStatus }),
+    ...(Object.keys(createdAt).length > 0 && { createdAt }),
   };
 
   const [orders, total] = await Promise.all([
@@ -174,19 +194,22 @@ export const getAllOrdersService = async ({
             email: true,
             rol: true,
             perfil: true,
+            perfilMinorista: true,
           },
         },
-        items: {
-          include: {
-            product: {
-              select: {
-                descripcion: true,
-                codigoInterno: true,
-                stock: true,
+        ...(!summary && {
+          items: {
+            include: {
+              product: {
+                select: {
+                  descripcion: true,
+                  codigoInterno: true,
+                  stock: true,
+                },
               },
             },
           },
-        },
+        }),
       },
     }),
     prisma.order.count({ where }),
@@ -415,4 +438,91 @@ export const createWholesaleOrderFlow = async ({ user, items }) => {
   }
 
   return order;
+};
+
+export const createOrderFromSnapshot = async ({ user, type, items, totalAmount }) => {
+  if (!user) throw new Error("USER_REQUIRED");
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error("ITEMS_REQUIRED");
+  }
+
+  const userRol = user.rol?.toUpperCase();
+  if (
+    (type === "MAYORISTA" && userRol !== "MAYORISTA") ||
+    (type === "MINORISTA" && userRol !== "MINORISTA")
+  ) {
+    throw new Error(`ORDER_TYPE_NOT_ALLOWED: El usuario con rol ${user.rol} no puede crear pedidos de tipo ${type}`);
+  }
+
+  return runWithTransactionRetry("createOrderFromSnapshot", () =>
+    prisma.$transaction(async (tx) => {
+      let total = 0;
+      const orderItemsData = [];
+
+      for (const item of items) {
+        const product = await tx.product.findUnique({
+          where: { id: item.productId },
+        });
+
+        if (!product) {
+          throw new Error(`PRODUCT_NOT_FOUND: Producto con ID ${item.productId} no existe`);
+        }
+
+        if (!product.activo) {
+          throw new Error(`PRODUCT_NOT_FOUND: Producto con ID ${item.productId} está inactivo`);
+        }
+
+        if (type !== "MAYORISTA" && product.stock < item.quantity) {
+          throw new Error(`INSUFFICIENT_STOCK: Stock insuficiente para producto ${item.productId}`);
+        }
+
+        const unitPrice = Number(item.unitPrice ?? 0);
+        if (!unitPrice) {
+          throw new Error(`PRICE_NOT_DEFINED: Precio no definido para producto ${item.productId}`);
+        }
+
+        const subtotal = Number(item.subtotal ?? unitPrice * item.quantity);
+        total += subtotal;
+
+        orderItemsData.push({
+          productId: product.id,
+          quantity: item.quantity,
+          unitPrice,
+          subtotal,
+        });
+      }
+
+      const totalToUse =
+        typeof totalAmount === "number"
+          ? totalAmount
+          : typeof totalAmount === "string"
+            ? Number(totalAmount)
+            : total;
+
+      return tx.order.create({
+        data: {
+          userId: user.id,
+          type,
+          totalAmount: totalToUse,
+          status: "PENDING",
+          items: {
+            create: orderItemsData,
+          },
+        },
+        include: {
+          items: {
+            include: {
+              product: true,
+            },
+          },
+          user: {
+            select: {
+              email: true,
+              rol: true,
+            },
+          },
+        },
+      });
+    }, TX_OPTIONS)
+  );
 };
