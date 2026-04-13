@@ -63,8 +63,17 @@ import {
     res.json(orders);
   };
   
-  export const getAllOrders = async (req, res) => {
-    const { status, type, paymentStatus, page, limit } = req.query;
+export const getAllOrders = async (req, res) => {
+    const {
+      status,
+      type,
+      paymentStatus,
+      page,
+      limit,
+      startDate,
+      endDate,
+      summary,
+    } = req.query;
   
     const orders = await getAllOrdersService({
       status,
@@ -72,6 +81,9 @@ import {
       paymentStatus,
       page: Number(page) || 1,
       limit: Number(limit) || 20,
+      startDate,
+      endDate,
+      summary: summary === "true",
     });
   
     res.json(orders);
