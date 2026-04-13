@@ -1,5 +1,7 @@
 import { Router } from "express";
 import upload from "../middlewares/downloadsUpload.js";
+import { auth } from "../middlewares/auth.middleware.js";
+import { requireRole } from "../middlewares/role.middleware.js";
 
 import {
   uploadDownload,
@@ -10,9 +12,9 @@ import {
 
 const router = Router();
 
-router.post("/", upload.single("file"), uploadDownload);
+router.post("/", auth, requireRole("ADMIN"), upload.single("file"), uploadDownload);
 router.get("/", getDownloads);
-router.delete("/:id", deleteDownload);
+router.delete("/:id", auth, requireRole("ADMIN"), deleteDownload);
 router.get("/:id/file", downloadFile);
 
 

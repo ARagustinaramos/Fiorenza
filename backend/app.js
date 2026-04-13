@@ -13,6 +13,7 @@ import favoritesRoutes from "./src/routes/favorites.js";
 import bannerRoutes from "./src/routes/banner.routes.js";
 import downloadsRoutes from "./src/routes/downloads.routes.js";
 import cartRoutes from "./src/routes/cart.js";
+import paymentsRoutes from "./src/routes/payments.js";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -36,27 +37,65 @@ const limiter = rateLimit({
     req.path.startsWith("/api/products/bulk-upload/status") ||
     req.path.startsWith("/api/banners")
 });
-const allowedOrigins = (process.env.CORS_ORIGINS || "")
-  .split(",")
-  .map((o) => o.trim())
-  .filter(Boolean);
+const normalizeOrigin = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return raw.replace(/\/+$/, "");
+  }
+};
+
+const expandOriginVariants = (origin) => {
+  const normalized = normalizeOrigin(origin);
+  if (!normalized) return [];
+
+  try {
+    const url = new URL(normalized);
+    const variants = new Set([url.origin]);
+
+    if (url.hostname.startsWith("www.")) {
+      url.hostname = url.hostname.replace(/^www\./, "");
+      variants.add(url.origin);
+    } else if (!["localhost", "127.0.0.1"].includes(url.hostname)) {
+      url.hostname = `www.${url.hostname}`;
+      variants.add(url.origin);
+    }
+
+    return [...variants];
+  } catch {
+    return [normalized];
+  }
+};
+
+const allowedOrigins = new Set(
+  (process.env.CORS_ORIGINS || "")
+    .split(",")
+    .flatMap((origin) => expandOriginVariants(origin))
+);
 
 if (process.env.FRONTEND_URL) {
-  allowedOrigins.push(process.env.FRONTEND_URL.trim());
+  for (const origin of expandOriginVariants(process.env.FRONTEND_URL)) {
+    allowedOrigins.add(origin);
+  }
 }
 
 if (process.env.NODE_ENV !== "production") {
-  allowedOrigins.push("http://localhost:3000", "http://127.0.0.1:3000");
+  allowedOrigins.add("http://localhost:3000");
+  allowedOrigins.add("http://127.0.0.1:3000");
 }
 
 const corsConfig = {
   origin: (origin, callback) => {
+    const normalizedOrigin = normalizeOrigin(origin);
 
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) {
+    if (allowedOrigins.has(normalizedOrigin)) {
       return callback(null, true);
     }
-    if (origin.endsWith(".vercel.app")) {
+    if (normalizedOrigin.endsWith(".vercel.app")) {
       return callback(null, true);
     }
 
@@ -91,6 +130,7 @@ app.use("/api/products", productsRoutes);
 // Rutas de pedidos
 app.use("/api/orders", ordersRoutes);
 app.use("/api/cart", cartRoutes);
+app.use("/api/payments", paymentsRoutes);
 
 // Rutas de favoritos
 app.use("/api/favorites", favoritesRoutes);
