@@ -6,6 +6,8 @@ import { useDispatch } from "react-redux";
 import { SearchableSelect } from "../ui/SearchableSelect";
 import { addToCart } from "../../../store/slices/cartSlice";
 import { Heart, Camera, Search, X } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import { buildApiUrl } from "../../lib/api";
 
 const BRANDS = [
   { key: "chevrolet", label: "Chevrolet", searchName: "Chevrolet", logo: "/brands/chevrolet.png" },
@@ -21,6 +23,7 @@ const BRANDS = [
 export function ProductTableNew() {
   const router = useRouter();
   const dispatch = useDispatch();
+  const { user } = useAuth();
   const abortControllerRef = useRef(null);
   const hasLoadedOnceRef = useRef(false);
 
@@ -80,9 +83,7 @@ export function ProductTableNew() {
       const token = localStorage.getItem("token");
       if (!token) return;
 
-      const apiUrl =
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
-      const res = await fetch(`${apiUrl}/users/me`, {
+      const res = await fetch(buildApiUrl("/users/me"), {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -102,9 +103,7 @@ export function ProductTableNew() {
       const token = localStorage.getItem("token");
       if (!token) return;
 
-      const apiUrl =
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
-      const res = await fetch(`${apiUrl}/favorites`, {
+      const res = await fetch(buildApiUrl("/favorites"), {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -147,9 +146,7 @@ export function ProductTableNew() {
         setProducts((prev) => prev.filter((p) => p.id !== productId));
       }
 
-      const apiUrl =
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
-      const res = await fetch(`${apiUrl}/favorites/toggle`, {
+      const res = await fetch(buildApiUrl("/favorites/toggle"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -243,10 +240,7 @@ export function ProductTableNew() {
       const headers = {};
       if (token) headers.Authorization = `Bearer ${token}`;
 
-      const apiUrl =
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
-
-      const res = await fetch(`${apiUrl}/products?${params.toString()}`, {
+      const res = await fetch(buildApiUrl(`/products?${params.toString()}`), {
         headers,
         signal: controller.signal,
       });
@@ -278,6 +272,7 @@ export function ProductTableNew() {
     showOfertas,
     showNovedades,
     showFavorites,
+    user?.rol,
   ]);
 
   useEffect(() => {
@@ -299,17 +294,10 @@ export function ProductTableNew() {
   useEffect(() => {
     const fetchFiltros = async () => {
       try {
-        const apiUrl =
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
-
         const webOnly = user?.rol?.toUpperCase() === "MINORISTA";
         const [marcasRes, rubrosRes] = await Promise.all([
-          fetch(
-            `${apiUrl}/products/filters/marcas${webOnly ? "?web=true" : ""}`
-          ),
-          fetch(
-            `${apiUrl}/products/filters/rubros${webOnly ? "?web=true" : ""}`
-          ),
+          fetch(buildApiUrl(`/products/filters/marcas${webOnly ? "?web=true" : ""}`)),
+          fetch(buildApiUrl(`/products/filters/rubros${webOnly ? "?web=true" : ""}`)),
         ]);
 
         if (marcasRes.ok) setMarcas(await marcasRes.json());
@@ -320,7 +308,7 @@ export function ProductTableNew() {
     };
 
     fetchFiltros();
-  }, []);
+  }, [user?.rol]);
 
   return (
     <div className="relative">

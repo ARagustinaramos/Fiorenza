@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Slider from "react-slick";
+import { buildApiUrl } from "../lib/api";
 
 export function OffersCarousel() {
   const [offers, setOffers] = useState([]);
@@ -9,9 +10,7 @@ export function OffersCarousel() {
   useEffect(() => {
     const fetchBanners = async () => {
       try {
-        const apiUrl =
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
-        const res = await fetch(`${apiUrl}/banners`, { cache: "no-store" });
+        const res = await fetch(buildApiUrl("/banners"), { cache: "no-store" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         setOffers(Array.isArray(data) ? data : []);

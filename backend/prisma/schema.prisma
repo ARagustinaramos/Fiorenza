@@ -26,6 +26,7 @@ enum OrderType {
 enum OrderStatus {
   PENDING
   CONFIRMED
+  DESPACHADO
   CANCELLED
   COMPLETED
 }
@@ -67,6 +68,7 @@ model User {
   orders         Order[]
   cart           Cart?
   passwordResets PasswordReset[]
+  mercadoPagoSessions MercadoPagoSession[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -93,6 +95,10 @@ model PerfilMinorista {
   nombreCompleto String
   telefono       String?
   direccion      String?
+  ciudad         String?
+  provincia      String?
+  codigoPostal   String?
+  referencia     String?
   dni            String?
 
   userId String @unique
@@ -244,9 +250,25 @@ model Order {
   paymentMethod String? // "mercadopago", "clover", "transferencia"
   paymentRef    String? // id externo MP / Clover
 
+  shippingMethod        String?
+  shippingZone          String?
+  shippingBoxSize       String?
+  shippingEstimatedCost Decimal? @db.Decimal(10, 2)
+  shippingFullName      String?
+  shippingPhone         String?
+  shippingAddress       String?
+  shippingCity          String?
+  shippingProvince      String?
+  shippingPostalCode    String?
+  shippingReference     String?
+  adminTrackingNumber   String?
+  adminShippingCarrier  String?
+  adminShippingNotes    String?
+
   totalAmount Decimal @db.Decimal(10, 2)
 
   items OrderItem[]
+  mercadoPagoSessions MercadoPagoSession[]
 
   @@index([userId])
   @@index([type])
@@ -269,6 +291,27 @@ model OrderItem {
 
   @@index([orderId])
   @@index([productId])
+}
+
+model MercadoPagoSession {
+  id           String        @id @default(uuid())
+  preferenceId String        @unique
+  amount       Float
+  status       PaymentStatus @default(PENDING)
+  cartSnapshot Json?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  orderId String?
+  order   Order?  @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([orderId])
+  @@index([status])
 }
 
 model PasswordReset {

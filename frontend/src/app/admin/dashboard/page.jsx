@@ -252,7 +252,7 @@ export default function AdminDashboard() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h2 className="text-xl font-bold mb-6">Actividad Reciente</h2>
 
-          <div className="space-y-4">
+          <div className="max-h-80 overflow-y-auto pr-2 space-y-4">
             {recentOrders.length === 0 ? (
               <p className="text-gray-500 text-center py-4">No hay actividad reciente</p>
             ) : (

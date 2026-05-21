@@ -1,5 +1,9 @@
 import prisma from "../config/prisma.js";
 import bcrypt from "bcryptjs";
+import {
+  SHIPPING_PROFILE_REQUIRED_FIELDS,
+  normalizeText,
+} from "../utils/shipping.utils.js";
 
 export const getUsers = async (req, res) => {
   try {
@@ -23,6 +27,10 @@ export const getUsers = async (req, res) => {
             nombreCompleto: true,
             telefono: true,
             direccion: true,
+            ciudad: true,
+            provincia: true,
+            codigoPostal: true,
+            referencia: true,
             dni: true,
           },
         },
@@ -60,6 +68,10 @@ export const getMyProfile = async (req, res) => {
             nombreCompleto: true,
             telefono: true,
             direccion: true,
+            ciudad: true,
+            provincia: true,
+            codigoPostal: true,
+            referencia: true,
             dni: true,
           },
         },
@@ -88,6 +100,10 @@ export const updateMyProfile = async (req, res) => {
       coeficienteVenta,
       avatarUrl,
       direccion,
+      ciudad,
+      provincia,
+      codigoPostal,
+      referencia,
       dni,
     } = req.body;
 
@@ -100,6 +116,10 @@ export const updateMyProfile = async (req, res) => {
       coeficienteVenta,
       avatarUrl,
       direccion,
+      ciudad,
+      provincia,
+      codigoPostal,
+      referencia,
       dni,
     });
 
@@ -124,6 +144,25 @@ export const updateMyProfile = async (req, res) => {
       ) {
         return res.status(400).json({ error: "INVALID_COEFICIENTE_VENTA" });
       }
+    } else {
+      const minoristaProfile = {
+        nombreCompleto,
+        telefono,
+        direccion,
+        ciudad,
+        provincia,
+        codigoPostal,
+      };
+      const missingFields = SHIPPING_PROFILE_REQUIRED_FIELDS.filter(
+        (field) => !normalizeText(minoristaProfile[field])
+      );
+
+      if (missingFields.length > 0) {
+        return res.status(400).json({
+          error: "MINORISTA_SHIPPING_PROFILE_INCOMPLETE",
+          fields: missingFields,
+        });
+      }
     }
 
     const user = await prisma.user.update({
@@ -136,12 +175,20 @@ export const updateMyProfile = async (req, res) => {
                   nombreCompleto,
                   telefono,
                   direccion,
+                  ciudad,
+                  provincia,
+                  codigoPostal,
+                  referencia,
                   dni,
                 },
                 create: {
                   nombreCompleto,
                   telefono: telefono || null,
                   direccion: direccion || null,
+                  ciudad: ciudad || null,
+                  provincia: provincia || null,
+                  codigoPostal: codigoPostal || null,
+                  referencia: referencia || null,
                   dni: dni || null,
                 },
               },
@@ -191,6 +238,10 @@ export const updateMyProfile = async (req, res) => {
             nombreCompleto: true,
             telefono: true,
             direccion: true,
+            ciudad: true,
+            provincia: true,
+            codigoPostal: true,
+            referencia: true,
             dni: true,
           },
         },
@@ -231,6 +282,10 @@ export const getUserById = async (req, res) => {
             nombreCompleto: true,
             telefono: true,
             direccion: true,
+            ciudad: true,
+            provincia: true,
+            codigoPostal: true,
+            referencia: true,
             dni: true,
           },
         },
@@ -261,6 +316,10 @@ export const updateUserById = async (req, res) => {
       cargo,
       password,
       direccion,
+      ciudad,
+      provincia,
+      codigoPostal,
+      referencia,
       dni,
     } = req.body;
 
@@ -300,6 +359,10 @@ export const updateUserById = async (req, res) => {
       empresa !== undefined ||
       cargo !== undefined ||
       direccion !== undefined ||
+      ciudad !== undefined ||
+      provincia !== undefined ||
+      codigoPostal !== undefined ||
+      referencia !== undefined ||
       dni !== undefined
     ) {
       if (isMinorista) {
@@ -309,12 +372,20 @@ export const updateUserById = async (req, res) => {
               ...(nombreCompleto && { nombreCompleto }),
               ...(telefono && { telefono }),
               ...(direccion && { direccion }),
+              ...(ciudad && { ciudad }),
+              ...(provincia && { provincia }),
+              ...(codigoPostal && { codigoPostal }),
+              ...(referencia && { referencia }),
               ...(dni && { dni }),
             },
             create: {
               nombreCompleto: nombreCompleto || "",
               telefono: telefono || null,
               direccion: direccion || null,
+              ciudad: ciudad || null,
+              provincia: provincia || null,
+              codigoPostal: codigoPostal || null,
+              referencia: referencia || null,
               dni: dni || null,
             },
           },
@@ -365,6 +436,10 @@ export const updateUserById = async (req, res) => {
             nombreCompleto: true,
             telefono: true,
             direccion: true,
+            ciudad: true,
+            provincia: true,
+            codigoPostal: true,
+            referencia: true,
             dni: true,
           },
         },
@@ -380,7 +455,19 @@ export const updateUserById = async (req, res) => {
 };
 
 export const createUser = async (req, res) => {
-  const { email, password, rol, nombreCompleto, telefono, direccion, dni } = req.body;
+  const {
+    email,
+    password,
+    rol,
+    nombreCompleto,
+    telefono,
+    direccion,
+    ciudad,
+    provincia,
+    codigoPostal,
+    referencia,
+    dni,
+  } = req.body;
   const userRole = (rol || "MAYORISTA").toUpperCase();
 
   if (!email || !password) {
@@ -415,6 +502,10 @@ export const createUser = async (req, res) => {
                 nombreCompleto: String(nombreCompleto).trim(),
                 telefono: telefono || null,
                 direccion: direccion || null,
+                ciudad: ciudad || null,
+                provincia: provincia || null,
+                codigoPostal: codigoPostal || null,
+                referencia: referencia || null,
                 dni: dni || null,
               },
             },

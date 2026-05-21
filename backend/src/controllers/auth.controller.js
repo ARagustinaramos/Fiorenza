@@ -26,6 +26,14 @@ const fetchGoogleTokenInfo = async (idToken) => {
   return data;
 };
 
+const GOOGLE_ERROR_STATUS = {
+  MINORISTA_DISABLED: 403,
+  ID_TOKEN_REQUIRED: 400,
+  INVALID_GOOGLE_TOKEN: 401,
+  GOOGLE_AUD_MISMATCH: 401,
+  ACCOUNT_EXISTS_DIFFERENT_PROVIDER: 409,
+};
+
 export const register = async (req, res) => {
   try {
     const { email, password, rol } = req.body;
@@ -202,7 +210,8 @@ export const loginWithGoogle = async (req, res) => {
     });
   } catch (error) {
     console.error("GOOGLE_LOGIN_ERROR:", error);
-    res.status(500).json({ error: "GOOGLE_LOGIN_ERROR" });
+    const errorCode = error?.message || "GOOGLE_LOGIN_ERROR";
+    res.status(GOOGLE_ERROR_STATUS[errorCode] || 500).json({ error: errorCode });
   }
 };
 

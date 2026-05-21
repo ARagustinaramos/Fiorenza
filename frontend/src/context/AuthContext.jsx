@@ -1,16 +1,16 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { buildApiUrl } from "../lib/api";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
   const login = async (email, password) => {
-    const res = await fetch(`${apiBase}/auth/login`, {
+    const res = await fetch(buildApiUrl("/auth/login"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
@@ -29,14 +29,15 @@ export function AuthProvider({ children }) {
   };
 
   const loginWithGoogle = async (idToken) => {
-    const res = await fetch(`${apiBase}/auth/google`, {
+    const res = await fetch(buildApiUrl("/auth/google"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ idToken }),
     });
 
     if (!res.ok) {
-      throw new Error("GOOGLE_LOGIN_FAILED");
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "GOOGLE_LOGIN_FAILED");
     }
 
     const data = await res.json();
@@ -58,7 +59,7 @@ export function AuthProvider({ children }) {
       return;
     }
 
-    fetch(`${apiBase}/auth/me`, {
+    fetch(buildApiUrl("/auth/me"), {
       headers: {
         Authorization: `Bearer ${token}`,
       },

@@ -23,7 +23,8 @@ const app = express();
 app.set("trust proxy", process.env.TRUST_PROXY === "true" ? 1 : false);
 
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" }
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
 }));
 
 const limiter = rateLimit({
@@ -82,10 +83,8 @@ if (process.env.FRONTEND_URL) {
   }
 }
 
-if (process.env.NODE_ENV !== "production") {
-  allowedOrigins.add("http://localhost:3000");
-  allowedOrigins.add("http://127.0.0.1:3000");
-}
+allowedOrigins.add("http://localhost:3000");
+allowedOrigins.add("http://127.0.0.1:3000");
 
 const corsConfig = {
   origin: (origin, callback) => {

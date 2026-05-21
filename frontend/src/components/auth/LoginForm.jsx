@@ -25,6 +25,23 @@ export function LoginForm({ onSuccess }) {
   const [rememberEmail, setRememberEmail] = useState(true);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const googleButtonRenderedRef = useRef(false);
+
+  const getGoogleErrorMessage = (errorCode) => {
+    switch (errorCode) {
+      case "MINORISTA_DISABLED":
+        return "El acceso minorista con Google no esta habilitado en este entorno.";
+      case "ID_TOKEN_REQUIRED":
+      case "INVALID_GOOGLE_TOKEN":
+        return "Google no pudo validar la sesion. Proba nuevamente.";
+      case "GOOGLE_AUD_MISMATCH":
+        return "La configuracion de Google no coincide entre frontend y backend.";
+      case "ACCOUNT_EXISTS_DIFFERENT_PROVIDER":
+        return "Ese email ya existe con otro metodo de acceso. Inicia sesion con email y contrasena.";
+      default:
+        return "No se pudo iniciar sesion con Google.";
+    }
+  };
 
   useEffect(() => {
     const savedEmail = localStorage.getItem("rememberedEmail");
@@ -45,40 +62,45 @@ export function LoginForm({ onSuccess }) {
 
     const initializeGoogle = () => {
       if (!window.google?.accounts?.id) return;
-      googleInitRef.current = true;
-      window.google.accounts.id.initialize({
-        client_id: googleClientId,
-        callback: async (response) => {
-          setError(null);
-          setLoading(true);
-          try {
-            const user = await loginWithGoogle(response.credential);
-            onSuccess?.();
-            if (user.rol === "mayorista" || user.rol === "MAYORISTA") {
-              router.push("/mayorista");
-            } else if (user.rol === "minorista" || user.rol === "MINORISTA") {
-              router.push("/");
-            } else if (user.rol === "admin" || user.rol === "ADMIN") {
-              router.push("/admin/dashboard");
-            } else {
-              router.push("/");
+      if (!window.__fiorenzaGoogleInitialized) {
+        window.google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: async (response) => {
+            setError(null);
+            setLoading(true);
+            try {
+              const user = await loginWithGoogle(response.credential);
+              onSuccess?.();
+              if (user.rol === "mayorista" || user.rol === "MAYORISTA") {
+                router.push("/mayorista");
+              } else if (user.rol === "minorista" || user.rol === "MINORISTA") {
+                router.push("/minorista");
+              } else if (user.rol === "admin" || user.rol === "ADMIN") {
+                router.push("/admin/dashboard");
+              } else {
+                router.push("/");
+              }
+            } catch (err) {
+              setError(getGoogleErrorMessage(err?.message));
+              console.error("Google login error:", err);
+            } finally {
+              setLoading(false);
             }
-          } catch (err) {
-            setError("No se pudo iniciar sesión con Google");
-            console.log(err);
-          } finally {
-            setLoading(false);
-          }
-        },
-      });
+          },
+        });
+        window.__fiorenzaGoogleInitialized = true;
+      }
+      googleInitRef.current = true;
 
       const target = document.getElementById("google-signin-btn");
-      if (target) {
+      if (target && !googleButtonRenderedRef.current) {
+        target.innerHTML = "";
         window.google.accounts.id.renderButton(target, {
           theme: "outline",
           size: "large",
           width: "300",
         });
+        googleButtonRenderedRef.current = true;
       }
     };
 
@@ -99,6 +121,16 @@ export function LoginForm({ onSuccess }) {
     };
   }, [accountType, googleClientId, loginWithGoogle, onSuccess, router]);
 
+  useEffect(() => {
+    if (accountType !== "MINORISTA") {
+      googleButtonRenderedRef.current = false;
+      const target = document.getElementById("google-signin-btn");
+      if (target) {
+        target.innerHTML = "";
+      }
+    }
+  }, [accountType]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
@@ -117,7 +149,7 @@ export function LoginForm({ onSuccess }) {
       if (user.rol === "mayorista" || user.rol === "MAYORISTA") {
         router.push("/mayorista");
       } else if (user.rol === "minorista" || user.rol === "MINORISTA") {
-        router.push("/");
+        router.push("/minorista");
       } else if (user.rol === "admin" || user.rol === "ADMIN") {
         router.push("/admin/dashboard");
       } else {

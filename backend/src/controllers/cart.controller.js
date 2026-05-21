@@ -8,6 +8,44 @@ const getUnitPrice = (product, userRole) => {
   return Number(product.precioConIva ?? product.precioMayoristaSinIva ?? 0);
 };
 
+const normalizeCartItemsByAvailability = (items, userRole) => {
+  const role = String(userRole || "").toUpperCase();
+
+  return items.reduce(
+    (acc, item) => {
+      const product = item.product;
+      const stock = Number(product?.stock || 0);
+
+      const isAvailable =
+        product &&
+        product.activo &&
+        stock > 0 &&
+        (role !== "MINORISTA" || product.web);
+
+      if (!isAvailable) {
+        acc.removedIds.push(item.id);
+        return acc;
+      }
+
+      const normalizedQuantity = Math.max(1, Math.min(Math.floor(item.quantity), stock));
+      acc.items.push({
+        ...item,
+        quantity: normalizedQuantity,
+      });
+
+      if (normalizedQuantity !== item.quantity) {
+        acc.updatedItems.push({
+          id: item.id,
+          quantity: normalizedQuantity,
+        });
+      }
+
+      return acc;
+    },
+    { items: [], removedIds: [], updatedItems: [] }
+  );
+};
+
 const mapCartItems = (items, userRole) =>
   items.map((item) => ({
     id: item.product.id,
@@ -35,7 +73,29 @@ export const getMyCart = async (req, res) => {
       return res.json({ items: [] });
     }
 
-    return res.json({ items: mapCartItems(cart.items, req.user?.rol) });
+    const normalizedCart = normalizeCartItemsByAvailability(
+      cart.items,
+      req.user?.rol
+    );
+
+    if (normalizedCart.removedIds.length || normalizedCart.updatedItems.length) {
+      await prisma.$transaction(async (tx) => {
+        if (normalizedCart.removedIds.length) {
+          await tx.cartItem.deleteMany({
+            where: { id: { in: normalizedCart.removedIds } },
+          });
+        }
+
+        for (const item of normalizedCart.updatedItems) {
+          await tx.cartItem.update({
+            where: { id: item.id },
+            data: { quantity: item.quantity },
+          });
+        }
+      });
+    }
+
+    return res.json({ items: mapCartItems(normalizedCart.items, req.user?.rol) });
   } catch (error) {
     return res.status(500).json({ error: "ERROR_GETTING_CART" });
   }
@@ -53,19 +113,48 @@ export const replaceMyCart = async (req, res) => {
 
     const productIds = [...new Set(normalized.map((item) => item.productId))];
 
+    const role = String(req.user?.rol || "").toUpperCase();
+    let sanitizedItems = normalized.map((item) => ({
+      ...item,
+      quantity: Math.floor(item.quantity),
+    }));
+
     if (productIds.length > 0) {
       const existingProducts = await prisma.product.findMany({
         where: {
           id: { in: productIds },
           activo: true,
         },
-        select: { id: true },
+        select: {
+          id: true,
+          stock: true,
+          web: true,
+        },
       });
 
-      const validIds = new Set(existingProducts.map((product) => product.id));
-      if (validIds.size !== productIds.length) {
-        return res.status(400).json({ error: "INVALID_PRODUCT_IN_CART" });
-      }
+      const productsById = new Map(
+        existingProducts.map((product) => [product.id, product])
+      );
+
+      sanitizedItems = sanitizedItems.reduce((acc, item) => {
+        const product = productsById.get(item.productId);
+        const stock = Number(product?.stock || 0);
+
+        if (!product || stock <= 0) {
+          return acc;
+        }
+
+        if (role === "MINORISTA" && !product.web) {
+          return acc;
+        }
+
+        const quantity = Math.max(1, Math.min(item.quantity, stock));
+        acc.push({
+          productId: item.productId,
+          quantity,
+        });
+        return acc;
+      }, []);
     }
 
     await prisma.$transaction(async (tx) => {
@@ -79,12 +168,12 @@ export const replaceMyCart = async (req, res) => {
         where: { cartId: cart.id },
       });
 
-      if (normalized.length > 0) {
+      if (sanitizedItems.length > 0) {
         await tx.cartItem.createMany({
-          data: normalized.map((item) => ({
+          data: sanitizedItems.map((item) => ({
             cartId: cart.id,
             productId: item.productId,
-            quantity: Math.floor(item.quantity),
+            quantity: item.quantity,
           })),
         });
       }
@@ -101,8 +190,14 @@ export const replaceMyCart = async (req, res) => {
       },
     });
 
+    const normalizedCart = updatedCart
+      ? normalizeCartItemsByAvailability(updatedCart.items, req.user?.rol)
+      : { items: [] };
+
     return res.json({
-      items: updatedCart ? mapCartItems(updatedCart.items, req.user?.rol) : [],
+      items: normalizedCart.items
+        ? mapCartItems(normalizedCart.items, req.user?.rol)
+        : [],
     });
   } catch (error) {
     return res.status(500).json({ error: "ERROR_UPDATING_CART" });

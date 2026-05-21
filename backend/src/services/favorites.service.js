@@ -18,7 +18,14 @@ export const getFavoritesService = async (userId) => {
       },
     });
 
-    return favorites.map((fav) => fav.product);
+    return favorites
+      .map((fav) => fav.product)
+      .filter(
+        (product) =>
+          product &&
+          product.activo &&
+          Number(product.stock || 0) > 0
+      );
   } catch (error) {
     console.error("Error en getFavoritesService:", error);
     throw new Error("Error al obtener favoritos");
@@ -36,7 +43,7 @@ export const addFavoriteService = async (userId, productId) => {
       throw new Error("Producto no encontrado");
     }
 
-    if (!product.activo) {
+    if (!product.activo || Number(product.stock || 0) <= 0) {
       throw new Error("El producto no está disponible");
     }
 

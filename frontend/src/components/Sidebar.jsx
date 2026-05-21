@@ -15,7 +15,7 @@ export function Sidebar({ children }) {
 
   const getProductsPath = () => {
     if (userRole === "MAYORISTA") return "/mayorista";
-    if (userRole === "MINORISTA") return "/";
+    if (userRole === "MINORISTA") return "/minorista";
     return "/";
   };
 
@@ -24,7 +24,7 @@ export function Sidebar({ children }) {
     { label: "Perfil", href: "/dashboard/pefil", icon: User },
     { label: "Pedidos", href: "/dashboard/pedidos", icon: ShoppingBag },
     { label: "Descargas", href: "/dashboard/descargas", icon: Download },
-  ];
+  ].filter((item) => !(userRole === "MINORISTA" && item.href === "/dashboard/descargas"));
 
   return (
     <aside className="w-[260px] min-h-screen bg-gradient-to-b from-red-50 to-gray-50 border-r border-gray-200 p-6 flex flex-col">

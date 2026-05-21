@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { buildApiUrl } from "../../lib/api";
 
 export default function RegistroPage() {
   const router = useRouter();
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
   const enableMinorista =
     String(process.env.NEXT_PUBLIC_ENABLE_MINORISTA || "false").toLowerCase() ===
     "true";
@@ -40,7 +40,7 @@ export default function RegistroPage() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${apiBase}/auth/register-minorista`, {
+      const res = await fetch(buildApiUrl("/auth/register-minorista"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
