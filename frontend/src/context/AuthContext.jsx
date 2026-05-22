@@ -1,16 +1,16 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { buildApiUrl } from "../lib/api";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
   const login = async (email, password) => {
-    const res = await fetch(`${apiBase}/auth/login`, {
+    const res = await fetch(buildApiUrl("/auth/login"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
@@ -28,6 +28,24 @@ export function AuthProvider({ children }) {
     return data.user;
   };
 
+  const loginWithGoogle = async (idToken) => {
+    const res = await fetch(buildApiUrl("/auth/google"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "GOOGLE_LOGIN_FAILED");
+    }
+
+    const data = await res.json();
+    localStorage.setItem("token", data.token);
+    setUser(data.user);
+    return data.user;
+  };
+
   const logout = () => {
     localStorage.removeItem("token"); 
     setUser(null);
@@ -41,7 +59,7 @@ export function AuthProvider({ children }) {
       return;
     }
 
-    fetch(`${apiBase}/auth/me`, {
+    fetch(buildApiUrl("/auth/me"), {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -59,7 +77,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, loginWithGoogle, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

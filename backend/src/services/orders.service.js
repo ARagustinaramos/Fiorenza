@@ -2,6 +2,8 @@ import prisma from "../config/prisma.js";
 import { validateOrderInput } from "../validators/order.validator.js";
 import { isValidStatusTransition, getStatusTransitionMessage } from "../validators/orderStatus.validator.js";
 import { sendNewWholesaleOrderMail } from "./mailer.service.js";
+import { buildRetailOrderShippingSnapshot } from "../utils/shipping.utils.js";
+import { clearProductsListCache } from "../utils/productsListCache.js";
 
 const TX_OPTIONS = {
   maxWait: 10_000,
@@ -39,9 +41,9 @@ const runWithTransactionRetry = async (label, operation, retries = 2) => {
 };
 
 
-export const createOrderService = async ({ user, type, items }) => {
+export const createOrderService = async ({ user, type, items, shipping }) => {
   console.log("createOrderService - Input:", { type, itemsCount: items?.length, userId: user?.id, userRol: user?.rol });
-  
+
   const errors = validateOrderInput({ type, items });
   if (errors.length) {
     console.error("Validation errors:", errors);
@@ -60,76 +62,92 @@ export const createOrderService = async ({ user, type, items }) => {
 
   return runWithTransactionRetry("createOrderService", () =>
     prisma.$transaction(async (tx) => {
-    let total = 0;
-    const orderItemsData = [];
+      let total = 0;
+      const orderItemsData = [];
 
-    for (const item of items) {
-      console.log(`Procesando item: productId=${item.productId}, quantity=${item.quantity}`);
-      
-      const product = await tx.product.findUnique({
-        where: { id: item.productId },
-      });
+      for (const item of items) {
+        console.log(`Procesando item: productId=${item.productId}, quantity=${item.quantity}`);
 
-      if (!product) {
-        console.error(`Producto no encontrado: ${item.productId}`);
-        throw new Error(`PRODUCT_NOT_FOUND: Producto con ID ${item.productId} no existe`);
+        const product = await tx.product.findUnique({
+          where: { id: item.productId },
+        });
+
+        if (!product) {
+          console.error(`Producto no encontrado: ${item.productId}`);
+          throw new Error(`PRODUCT_NOT_FOUND: Producto con ID ${item.productId} no existe`);
+        }
+
+        if (!product.activo) {
+          console.error(`Producto inactivo: ${item.productId}`);
+          throw new Error(`PRODUCT_NOT_FOUND: Producto con ID ${item.productId} está inactivo`);
+        }
+
+        if (type === "MINORISTA" && !product.web) {
+          console.error(`Producto no disponible en web: ${item.productId}`);
+          throw new Error(`PRODUCT_NOT_AVAILABLE: Producto con ID ${item.productId} no estÃ¡ disponible para minorista`);
+        }
+
+        if (product.stock < item.quantity) {
+          console.error(`Stock insuficiente: producto=${item.productId}, stock=${product.stock}, cantidad=${item.quantity}`);
+          throw new Error(`INSUFFICIENT_STOCK: Stock insuficiente para producto ${item.productId}`);
+        }
+
+        const unitPrice =
+          type === "MAYORISTA"
+            ? product.precioMayoristaSinIva
+            : product.precioConIva;
+
+        if (unitPrice == null) {
+          console.error(`Precio no definido: producto=${item.productId}, type=${type}, precioMayoristaSinIva=${product.precioMayoristaSinIva}, precioConIva=${product.precioConIva}`);
+          throw new Error(`PRICE_NOT_DEFINED: Precio no definido para producto ${item.productId} con tipo ${type}`);
+        }
+
+        const subtotal = unitPrice * item.quantity;
+        total += subtotal;
+
+        orderItemsData.push({
+          productId: product.id,
+          quantity: item.quantity,
+          unitPrice,
+          subtotal,
+        });
       }
 
-      if (!product.activo) {
-        console.error(`Producto inactivo: ${item.productId}`);
-        throw new Error(`PRODUCT_NOT_FOUND: Producto con ID ${item.productId} está inactivo`);
-      }
+      const retailShippingSnapshot =
+        type === "MINORISTA"
+          ? buildRetailOrderShippingSnapshot({
+            profile: user?.perfilMinorista,
+            shipping,
+          })
+          : null;
 
-      if (type !== "MAYORISTA" && product.stock < item.quantity) {
-        console.error(`Stock insuficiente: producto=${item.productId}, stock=${product.stock}, cantidad=${item.quantity}`);
-        throw new Error(`INSUFFICIENT_STOCK: Stock insuficiente para producto ${item.productId}`);
-      }
-
-      const unitPrice =
-        type === "MAYORISTA"
-          ? product.precioMayoristaSinIva
-          : product.precioConIva;
-
-      if (unitPrice == null) {
-        console.error(`Precio no definido: producto=${item.productId}, type=${type}, precioMayoristaSinIva=${product.precioMayoristaSinIva}, precioConIva=${product.precioConIva}`);
-        throw new Error(`PRICE_NOT_DEFINED: Precio no definido para producto ${item.productId} con tipo ${type}`);
-      }
-
-      const subtotal = unitPrice * item.quantity;
-      total += subtotal;
-
-      orderItemsData.push({
-        productId: product.id,
-        quantity: item.quantity,
-        unitPrice,
-        subtotal,
-      });
-    }
-
-    return tx.order.create({
-      data: {
-        userId: user.id,
-        type,
-        totalAmount: total,
-        status: "PENDING",
-        items: {
-          create: orderItemsData,
-        },
-      },
-      include: {
-        items: {
-          include: {
-            product: true,
+      return tx.order.create({
+        data: {
+          userId: user.id,
+          type,
+          totalAmount: total,
+          status: "PENDING",
+          ...(retailShippingSnapshot || {}),
+          items: {
+            create: orderItemsData,
           },
         },
-        user: {
-          select: {
-            email: true,
-            rol: true,
+        include: {
+          items: {
+            include: {
+              product: true,
+            },
+          },
+          user: {
+            select: {
+              email: true,
+              rol: true,
+              perfil: true,
+              perfilMinorista: true,
+            },
           },
         },
-      },
-    });
+      });
     }, TX_OPTIONS)
   );
 };
@@ -230,55 +248,77 @@ export const getAllOrdersService = async ({
 export const confirmOrderService = async (orderId) => {
   const confirmedOrder = await runWithTransactionRetry("confirmOrderService", () =>
     prisma.$transaction(async (tx) => {
-    const order = await tx.order.findUnique({
-      where: { id: orderId },
-      include: { items: true, user: true },
-    });
-
-    if (!order) throw new Error("ORDER_NOT_FOUND");
-    if (order.status !== "PENDING") throw new Error("ORDER_NOT_PENDING");
-
-    const productIds = [...new Set(order.items.map((item) => item.productId))];
-    const products = await tx.product.findMany({
-      where: { id: { in: productIds } },
-      select: { id: true, stock: true },
-    });
-    const productById = new Map(products.map((product) => [product.id, product]));
-
-    for (const item of order.items) {
-      const product = productById.get(item.productId);
-      if (!product) throw new Error("PRODUCT_NOT_FOUND");
-
-      if (order.type !== "MAYORISTA" && product.stock < item.quantity) {
-        throw new Error("INSUFFICIENT_STOCK");
-      }
-    }
-
-    for (const item of order.items) {
-      await tx.product.update({
-        where: { id: item.productId },
-        data: {
-          stock: {
-            decrement: item.quantity,
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        include: {
+          items: true,
+          user: {
+            include: {
+              perfil: true,
+              perfilMinorista: true,
+            },
           },
         },
       });
-    }
 
-    return tx.order.update({
-      where: { id: orderId },
-      data: { status: "CONFIRMED" },
-      include: { items: true, user: true },
-    });
+      if (!order) throw new Error("ORDER_NOT_FOUND");
+      if (order.status !== "PENDING") throw new Error("ORDER_NOT_PENDING");
+
+      const productIds = [...new Set(order.items.map((item) => item.productId))];
+      const products = await tx.product.findMany({
+        where: { id: { in: productIds } },
+        select: { id: true, stock: true },
+      });
+      const productById = new Map(products.map((product) => [product.id, product]));
+
+      for (const item of order.items) {
+        const product = productById.get(item.productId);
+        if (!product) throw new Error("PRODUCT_NOT_FOUND");
+
+        if (product.stock < item.quantity) {
+          throw new Error("INSUFFICIENT_STOCK");
+        }
+      }
+
+      for (const item of order.items) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: {
+            stock: {
+              decrement: item.quantity,
+            },
+          },
+        });
+      }
+
+      return tx.order.update({
+        where: { id: orderId },
+        data: { status: "CONFIRMED" },
+        include: {
+          items: {
+            include: {
+              product: true,
+            },
+          },
+          user: {
+            select: {
+              email: true,
+              rol: true,
+              perfil: true,
+              perfilMinorista: true,
+            },
+          },
+        },
+      });
     }, TX_OPTIONS)
   );
 
- 
+  clearProductsListCache();
   return confirmedOrder;
 };
 
 export const cancelOrderService = async (orderId) => {
-  return prisma.$transaction(async (tx) => {
+  const cancelledOrder = await prisma.$transaction(async (tx) => {
     const order = await tx.order.findUnique({
       where: { id: orderId },
       include: { items: true },
@@ -307,6 +347,9 @@ export const cancelOrderService = async (orderId) => {
       data: { status: "CANCELLED" },
     });
   });
+
+  clearProductsListCache();
+  return cancelledOrder;
 };
 
 
@@ -320,7 +363,7 @@ export const updateOrderStatusService = async ({ orderId, newStatus }) => {
 
     // Normalizar estados
     const normalizedNewStatus = newStatus?.toUpperCase().trim();
-    
+
     console.log(`[UPDATE STATUS] Intentando transición: ${order.status} -> ${normalizedNewStatus}`);
     console.log(`[UPDATE STATUS] Estado actual en BD: "${order.status}" (tipo: ${typeof order.status})`);
     console.log(`[UPDATE STATUS] Nuevo estado solicitado: "${normalizedNewStatus}" (tipo: ${typeof normalizedNewStatus})`);
@@ -339,6 +382,7 @@ export const updateOrderStatusService = async ({ orderId, newStatus }) => {
             email: true,
             rol: true,
             perfil: true,
+            perfilMinorista: true,
           },
         },
         items: {
@@ -351,6 +395,55 @@ export const updateOrderStatusService = async ({ orderId, newStatus }) => {
   });
 };
 
+export const updateOrderAdminShippingService = async ({
+  orderId,
+  adminTrackingNumber,
+  adminShippingCarrier,
+  adminShippingNotes,
+}) => {
+  return prisma.$transaction(async (tx) => {
+    const order = await tx.order.findUnique({
+      where: { id: orderId },
+    });
+
+    if (!order) {
+      throw new Error("ORDER_NOT_FOUND");
+    }
+
+    const normalizedTrackingNumber = adminTrackingNumber?.trim() || null;
+    const normalizedShippingCarrier = adminShippingCarrier?.trim() || null;
+    const normalizedShippingNotes = adminShippingNotes?.trim() || null;
+    const shouldMarkAsDespatched =
+      String(order.type || "").toUpperCase() === "MINORISTA" &&
+      order.status === "CONFIRMED" &&
+      (normalizedTrackingNumber || normalizedShippingCarrier || normalizedShippingNotes);
+
+    return tx.order.update({
+      where: { id: orderId },
+      data: {
+        adminTrackingNumber: normalizedTrackingNumber,
+        adminShippingCarrier: normalizedShippingCarrier,
+        adminShippingNotes: normalizedShippingNotes,
+        ...(shouldMarkAsDespatched ? { status: "DESPACHADO" } : {}),
+      },
+      include: {
+        user: {
+          select: {
+            email: true,
+            rol: true,
+            perfil: true,
+            perfilMinorista: true,
+          },
+        },
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
+  });
+};
 
 export const getOrderByIdService = async (id) => {
   const order = await prisma.order.findUnique({
@@ -361,6 +454,7 @@ export const getOrderByIdService = async (id) => {
           email: true,
           rol: true,
           perfil: true,
+          perfilMinorista: true,
         },
       },
       items: {
@@ -394,6 +488,14 @@ export const previewOrderService = async ({ user, type, items }) => {
 
     if (!product || !product.activo) {
       throw new Error("PRODUCT_NOT_FOUND");
+    }
+
+    if (type === "MINORISTA" && !product.web) {
+      throw new Error("PRODUCT_NOT_AVAILABLE");
+    }
+
+    if (product.stock < item.quantity) {
+      throw new Error("INSUFFICIENT_STOCK");
     }
 
     const unitPrice =
@@ -440,7 +542,13 @@ export const createWholesaleOrderFlow = async ({ user, items }) => {
   return order;
 };
 
-export const createOrderFromSnapshot = async ({ user, type, items, totalAmount }) => {
+export const createOrderFromSnapshot = async ({
+  user,
+  type,
+  items,
+  totalAmount,
+  shippingSnapshot,
+}) => {
   if (!user) throw new Error("USER_REQUIRED");
   if (!Array.isArray(items) || items.length === 0) {
     throw new Error("ITEMS_REQUIRED");
@@ -472,7 +580,11 @@ export const createOrderFromSnapshot = async ({ user, type, items, totalAmount }
           throw new Error(`PRODUCT_NOT_FOUND: Producto con ID ${item.productId} está inactivo`);
         }
 
-        if (type !== "MAYORISTA" && product.stock < item.quantity) {
+        if (type === "MINORISTA" && !product.web) {
+          throw new Error(`PRODUCT_NOT_AVAILABLE: Producto con ID ${item.productId} no está disponible para minorista`);
+        }
+
+        if (product.stock < item.quantity) {
           throw new Error(`INSUFFICIENT_STOCK: Stock insuficiente para producto ${item.productId}`);
         }
 
@@ -500,29 +612,32 @@ export const createOrderFromSnapshot = async ({ user, type, items, totalAmount }
             : total;
 
       return tx.order.create({
-        data: {
-          userId: user.id,
-          type,
-          totalAmount: totalToUse,
-          status: "PENDING",
-          items: {
-            create: orderItemsData,
-          },
-        },
-        include: {
-          items: {
-            include: {
-              product: true,
-            },
-          },
-          user: {
-            select: {
-              email: true,
-              rol: true,
-            },
-          },
-        },
-      });
+  data: {
+    userId: user.id,
+    type,
+    totalAmount: totalToUse,
+    status: "PENDING",
+    ...(shippingSnapshot || {}),
+    items: {
+      create: orderItemsData,
+    },
+  },
+  include: {
+    items: {
+      include: {
+        product: true,
+      },
+    },
+    user: {
+      select: {
+        email: true,
+        rol: true,
+        perfil: true,
+        perfilMinorista: true,
+      },
+    },
+  },
+});;
     }, TX_OPTIONS)
   );
 };

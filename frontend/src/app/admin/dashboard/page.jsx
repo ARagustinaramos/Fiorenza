@@ -13,6 +13,7 @@ export default function AdminDashboard() {
     ventasMes: 0,
   });
   const [recentOrders, setRecentOrders] = useState([]);
+  const [lowStock, setLowStock] = useState({ count: 0, items: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -39,25 +40,38 @@ export default function AdminDashboard() {
         const productsData = await productsRes.json();
         const totalProductos = productsData.pagination?.total || 0;
 
-        let orders = [];
-        try {
-          const ordersParams = new URLSearchParams({
-            limit: "50",
-          });
-
-          const ordersRes = await fetch(`${apiUrl}/orders?${ordersParams.toString()}`, {
+        const lowStockRes = await fetch(
+          `${apiUrl}/products/low-stock?threshold=0&limit=20`,
+          {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          });
-
-          if (ordersRes.ok) {
-            const ordersData = await ordersRes.json();
-            orders = Array.isArray(ordersData?.data) ? ordersData.data : [];
           }
-        } catch {
-          orders = [];
+        );
+        if (!lowStockRes.ok) {
+          throw new Error("No se pudo cargar el stock bajo");
         }
+        const lowStockData = await lowStockRes.json();
+
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        const ordersParams = new URLSearchParams({
+          startDate: startOfMonth.toISOString(),
+          limit: "1000",
+          summary: "true",
+        });
+
+        const ordersRes = await fetch(`${apiUrl}/orders?${ordersParams.toString()}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!ordersRes.ok) {
+          throw new Error("No se pudieron cargar los pedidos");
+        }
+        const ordersData = await ordersRes.json();
+        const orders = ordersData.data || [];
 
         const pedidosMes = orders.length;
         const ventasMes = orders.reduce((sum, order) => {
@@ -94,6 +108,10 @@ export default function AdminDashboard() {
         });
 
         setRecentOrders(orders.slice(0, 4));
+        setLowStock({
+          count: Number(lowStockData?.count || 0),
+          items: Array.isArray(lowStockData?.items) ? lowStockData.items : [],
+        });
       } catch (err) {
         console.error("Error cargando datos del dashboard:", err);
         setError(err.message);
@@ -234,7 +252,7 @@ export default function AdminDashboard() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h2 className="text-xl font-bold mb-6">Actividad Reciente</h2>
 
-          <div className="space-y-4">
+          <div className="max-h-80 overflow-y-auto pr-2 space-y-4">
             {recentOrders.length === 0 ? (
               <p className="text-gray-500 text-center py-4">No hay actividad reciente</p>
             ) : (
@@ -280,6 +298,39 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        {/* Stock bajo */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-6">
+          <h2 className="text-xl font-bold mb-4">Stock bajo (web)</h2>
+          {lowStock.count === 0 ? (
+            <p className="text-gray-500">No hay productos sin stock.</p>
+          ) : (
+            <>
+              <p className="text-sm text-gray-600 mb-4">
+                Productos sin stock: <strong>{lowStock.count}</strong>
+              </p>
+              <div className="max-h-56 overflow-y-auto border border-gray-100 rounded-lg">
+                {lowStock.items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between px-4 py-2 border-b border-gray-100 last:border-0"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {item.codigoInterno}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {item.descripcion || "Sin descripción"}
+                      </p>
+                    </div>
+                    <span className="text-xs font-medium text-red-600">
+                      Stock {Number(item.stock || 0)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </main>
     </div>
   );

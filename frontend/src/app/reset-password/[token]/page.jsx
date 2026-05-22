@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { buildApiUrl } from "../../../lib/api";
 
 export default function ResetPasswordPage() {
   const { token } = useParams();
@@ -31,17 +32,14 @@ export default function ResetPasswordPage() {
     setLoading(true);
 
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/auth/reset-password`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            token,
-            password,
-          }),
-        }
-      );
+      const res = await fetch(buildApiUrl("/auth/reset-password"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token,
+          password,
+        }),
+      });
 
       const data = await res.json();
 

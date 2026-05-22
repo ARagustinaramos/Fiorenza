@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "../config/loadEnv.js";
 import fs from "fs/promises";
 import prisma from "../config/prisma.js";
 import { runBulkUpload } from "../services/bulkUpload.service.js";

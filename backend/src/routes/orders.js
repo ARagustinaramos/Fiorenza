@@ -10,6 +10,7 @@ import {
   updateOrderStatus,
   confirmOrder,
   cancelOrder,
+  updateOrderAdminShipping,
 } from "../controllers/orders.controller.js";
 
 const router = express.Router();
@@ -35,6 +36,13 @@ router.post(
   auth,
   requireRole("ADMIN"),
   confirmOrder
+);
+
+router.patch(
+  "/:id/admin-shipping",
+  auth,
+  requireRole("ADMIN"),
+  updateOrderAdminShipping
 );
 
 router.patch(

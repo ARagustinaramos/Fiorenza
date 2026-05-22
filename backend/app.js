@@ -13,6 +13,7 @@ import favoritesRoutes from "./src/routes/favorites.js";
 import bannerRoutes from "./src/routes/banner.routes.js";
 import downloadsRoutes from "./src/routes/downloads.routes.js";
 import cartRoutes from "./src/routes/cart.js";
+import paymentsRoutes from "./src/routes/payments.js";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -22,7 +23,8 @@ const app = express();
 app.set("trust proxy", process.env.TRUST_PROXY === "true" ? 1 : false);
 
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" }
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
 }));
 
 const limiter = rateLimit({
@@ -30,8 +32,7 @@ const limiter = rateLimit({
   max: 100, 
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "Demasiadas peticiones desde esta IP, por favor intenta más tarde." }
-  ,
+  message: { error: "Demasiadas peticiones desde esta IP, por favor intenta más tarde." },
   skip: (req) =>
     req.path.startsWith("/api/products/bulk-upload/status") ||
     req.path.startsWith("/api/banners")
@@ -129,6 +130,7 @@ app.use("/api/products", productsRoutes);
 // Rutas de pedidos
 app.use("/api/orders", ordersRoutes);
 app.use("/api/cart", cartRoutes);
+app.use("/api/payments", paymentsRoutes);
 
 // Rutas de favoritos
 app.use("/api/favorites", favoritesRoutes);

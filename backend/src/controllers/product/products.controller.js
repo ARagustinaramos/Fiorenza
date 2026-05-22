@@ -1,36 +1,11 @@
 import prisma from "../../config/prisma.js";
 import { Prisma } from "@prisma/client";
 import { validateProductInput } from "../../validators/product.validator.js";
-
-const PRODUCTS_LIST_CACHE_TTL_MS = 15_000;
-const PRODUCTS_LIST_CACHE_MAX_ITEMS = 20;
-const productsListCache = new Map();
-
-const getProductsListCache = (key) => {
-  const entry = productsListCache.get(key);
-  if (!entry) return null;
-  if (entry.expiresAt <= Date.now()) {
-    productsListCache.delete(key);
-    return null;
-  }
-  return entry.value;
-};
-
-const setProductsListCache = (key, value) => {
-  if (productsListCache.size >= PRODUCTS_LIST_CACHE_MAX_ITEMS) {
-    const firstKey = productsListCache.keys().next().value;
-    if (firstKey) productsListCache.delete(firstKey);
-  }
-
-  productsListCache.set(key, {
-    value,
-    expiresAt: Date.now() + PRODUCTS_LIST_CACHE_TTL_MS,
-  });
-};
-
-const clearProductsListCache = () => {
-  productsListCache.clear();
-};
+import {
+  clearProductsListCache,
+  getProductsListCache,
+  setProductsListCache,
+} from "../../utils/productsListCache.js";
 
 const parseNumber = (value) => {
   if (value === null || value === undefined) return null;
@@ -78,6 +53,22 @@ const normalizeSearch = (text = "") =>
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]/g, "");
 
+const shouldFilterWebOnly = (req) => {
+  if (req?.query?.web === "true") return true;
+  return req?.user?.rol === "MINORISTA";
+};
+
+const shouldHideOutOfStock = (req) => req?.user?.rol === "MINORISTA";
+
+const buildWebStockFilter = (req) =>
+  shouldFilterWebOnly(req) && shouldHideOutOfStock(req)
+    ? Prisma.sql`AND p.web = true AND p.stock > 0`
+    : shouldFilterWebOnly(req)
+      ? Prisma.sql`AND p.web = true`
+      : shouldHideOutOfStock(req)
+        ? Prisma.sql`AND p.stock > 0`
+        : Prisma.sql``;
+
 export const createProduct = async (req, res) => {
   try {
     console.log("[createProduct DEBUG] Datos recibidos:", req.body);
@@ -93,6 +84,11 @@ export const createProduct = async (req, res) => {
     }
 
     // Verificar si ya existe 
+    const webValue =
+      req.body.web === true ||
+      req.body.web === "true" ||
+      req.body.web === "1";
+
     const existingProduct = await prisma.product.findUnique({
       where: { codigoInterno: req.body.codigoInterno },
     });
@@ -109,6 +105,7 @@ export const createProduct = async (req, res) => {
         where: { id: existingProduct.id },
         data: {
           ...req.body,
+          web: webValue,
           precioConIva: parseNumber(req.body.precioConIva),
           precioMayoristaSinIva: req.body.precioMayoristaSinIva !== undefined && req.body.precioMayoristaSinIva !== ""
             ? parseNumber(req.body.precioMayoristaSinIva)
@@ -125,6 +122,7 @@ export const createProduct = async (req, res) => {
     const product = await prisma.product.create({
       data: {
         ...req.body,
+        web: webValue,
         precioConIva: parseNumber(req.body.precioConIva),
         precioMayoristaSinIva: req.body.precioMayoristaSinIva !== undefined && req.body.precioMayoristaSinIva !== ""
           ? parseNumber(req.body.precioMayoristaSinIva)
@@ -144,14 +142,14 @@ export const createProduct = async (req, res) => {
 export const getProducts = async (req, res) => {
   const startedAt = Date.now();
   try {
-    const {
-      q = "",
-      marca,
-      familia,
-      rubro,
-      oferta,
-      novedad,
-      favorites,
+  const {
+    q = "",
+    marca,
+    familia,
+    rubro,
+    oferta,
+    novedad,
+    favorites,
       includeInactive,
       page = 1,
       limit = 20,
@@ -193,6 +191,15 @@ export const getProducts = async (req, res) => {
     const allowInactive = includeInactive === "true" && isAdmin;
     if (!allowInactive) {
       filters.push(Prisma.sql`p.activo = true`);
+    }
+
+    const webOnly = shouldFilterWebOnly(req);
+    if (webOnly) {
+      filters.push(Prisma.sql`p.web = true`);
+    }
+
+    if (shouldHideOutOfStock(req)) {
+      filters.push(Prisma.sql`p.stock > 0`);
     }
 
 
@@ -250,6 +257,8 @@ export const getProducts = async (req, res) => {
           OR immutable_unaccent(LOWER(p."descripcionAdicional")) ILIKE '%' || LOWER(${safeWord}) || '%'
           OR LOWER(p."codigoInterno") ILIKE '%' || LOWER(${safeWord}) || '%'
           OR CAST(p."codigoOriginal" AS TEXT) ILIKE '%' || ${safeWord} || '%'
+          OR CAST(p."codigoProveedor" AS TEXT) ILIKE '%' || ${safeWord} || '%'
+          OR immutable_unaccent(LOWER(p.proveedor)) ILIKE '%' || LOWER(${safeWord}) || '%'
         )`;
       });
 
@@ -269,7 +278,9 @@ export const getProducts = async (req, res) => {
       pageNum === 1;
 
     const roleKey = req.user?.rol || "ANON";
-    const cacheKey = canUseWarmCache ? `${roleKey}|p:${pageNum}|l:${limitNum}` : null;
+    const cacheKey = canUseWarmCache
+      ? `${roleKey}|w:${webOnly ? "1" : "0"}|p:${pageNum}|l:${limitNum}`
+      : null;
     if (cacheKey) {
       const cachedPayload = getProductsListCache(cacheKey);
       if (cachedPayload) {
@@ -367,6 +378,8 @@ export const getProducts = async (req, res) => {
 
 export const getProductById = async (req, res) => {
   try {
+    const webOnly = shouldFilterWebOnly(req);
+
     const product = await prisma.product.findUnique({
       where: { id: req.params.id },
       include: { images: true },
@@ -376,7 +389,15 @@ export const getProductById = async (req, res) => {
       return res.status(404).json({ error: "Producto no encontrado" });
     }
 
-    if (req.user.rol === "MINORISTA") {
+    if (webOnly && !product.web) {
+      return res.status(404).json({ error: "Producto no encontrado" });
+    }
+
+    if (shouldHideOutOfStock(req) && Number(product.stock || 0) <= 0) {
+      return res.status(404).json({ error: "Producto no encontrado" });
+    }
+
+    if (req.user?.rol === "MINORISTA") {
       delete product.stock;
     }
 
@@ -397,10 +418,18 @@ export const updateProduct = async (req, res) => {
       });
     }
 
+    const webValue =
+      req.body.web === undefined
+        ? undefined
+        : req.body.web === true ||
+          req.body.web === "true" ||
+          req.body.web === "1";
+
     const product = await prisma.product.update({
       where: { id: req.params.id },
       data: {
         ...req.body,
+        ...(webValue !== undefined ? { web: webValue } : {}),
         precioConIva: req.body.precioConIva !== undefined
           ? parseNumber(req.body.precioConIva)
           : undefined,
@@ -441,6 +470,8 @@ export const getOfferProducts = async (req, res) => {
     const { page = 1, limit = 20 } = req.query;
     const offset = (page - 1) * limit;
 
+    const webFilter = buildWebStockFilter(req);
+
     const products = await prisma.$queryRaw`
       SELECT
         p.*,
@@ -451,6 +482,7 @@ export const getOfferProducts = async (req, res) => {
       JOIN "Family" f ON f.id = p."familiaId"
       WHERE p."esOferta" = true
         AND p.activo = true
+        ${webFilter}
       ORDER BY p."updatedAt" DESC
       LIMIT ${Number(limit)}
       OFFSET ${offset}
@@ -468,6 +500,8 @@ export const getNewProducts = async (req, res) => {
     const { page = 1, limit = 20 } = req.query;
     const offset = (page - 1) * limit;
 
+    const webFilter = buildWebStockFilter(req);
+
     const products = await prisma.$queryRaw`
       SELECT
         p.*,
@@ -478,6 +512,7 @@ export const getNewProducts = async (req, res) => {
       JOIN "Family" f ON f.id = p."familiaId"
       WHERE p."esNovedad" = true
         AND p.activo = true
+        ${webFilter}
       ORDER BY p."createdAt" DESC
       LIMIT ${Number(limit)}
       OFFSET ${offset}
@@ -492,6 +527,8 @@ export const getNewProducts = async (req, res) => {
 
 export const getFeaturedProducts = async (req, res) => {
   try {
+    const webFilter = buildWebStockFilter(req);
+
     const products = await prisma.$queryRaw`
       SELECT
         p.*,
@@ -502,6 +539,7 @@ export const getFeaturedProducts = async (req, res) => {
       JOIN "Family" f ON f.id = p."familiaId"
       WHERE p.activo = true
         AND (p."esOferta" = true OR p."esNovedad" = true)
+        ${webFilter}
       ORDER BY p."updatedAt" DESC
       LIMIT 20
     `;
@@ -536,11 +574,14 @@ export const updateProductFlags = async (req, res) => {
 
 export const getMarcasFiltro = async (req, res) => {
   try {
+    const webFilter = buildWebStockFilter(req);
+
     const marcas = await prisma.$queryRaw`
       SELECT DISTINCT UPPER(m.nombre) AS nombre
       FROM "Brand" m
       JOIN "Product" p ON p."marcaId" = m.id
       WHERE p.activo = true
+        ${webFilter}
       ORDER BY nombre
     `;
 
@@ -553,11 +594,14 @@ export const getMarcasFiltro = async (req, res) => {
 
 export const getRubrosFiltro = async (req, res) => {
   try {
+    const webFilter = buildWebStockFilter(req);
+
     const rubros = await prisma.$queryRaw`
       SELECT DISTINCT UPPER(p.rubro) AS rubro
       FROM "Product" p
       WHERE p.activo = true
         AND p.rubro IS NOT NULL
+        ${webFilter}
       ORDER BY rubro
     `;
 
@@ -565,5 +609,53 @@ export const getRubrosFiltro = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Error al obtener rubros" });
+  }
+};
+
+export const getLowStockProducts = async (req, res) => {
+  try {
+    const threshold = Number(req.query.threshold ?? 0);
+    const limit = Math.min(Number(req.query.limit ?? 20), 100);
+
+    const normalizedThreshold = Number.isFinite(threshold) ? threshold : 0;
+    const normalizedLimit = Number.isFinite(limit) && limit > 0 ? limit : 20;
+
+    const [count, items] = await Promise.all([
+      prisma.product.count({
+        where: {
+          activo: true,
+          web: true,
+          stock: {
+            lte: normalizedThreshold,
+          },
+        },
+      }),
+      prisma.product.findMany({
+        where: {
+          activo: true,
+          web: true,
+          stock: {
+            lte: normalizedThreshold,
+          },
+        },
+        select: {
+          id: true,
+          codigoInterno: true,
+          descripcion: true,
+          stock: true,
+          updatedAt: true,
+        },
+        orderBy: [{ stock: "asc" }, { updatedAt: "desc" }],
+        take: normalizedLimit,
+      }),
+    ]);
+
+    res.json({
+      count,
+      items,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error al obtener stock bajo" });
   }
 };

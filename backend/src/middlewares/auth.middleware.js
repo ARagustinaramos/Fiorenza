@@ -15,7 +15,7 @@ export const auth = async (req, res, next) => {
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
-      include: { perfil: true },
+      include: { perfil: true, perfilMinorista: true },
     });
 
     if (!user || !user.activo) {

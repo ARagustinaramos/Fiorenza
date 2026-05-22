@@ -3,6 +3,37 @@ import prisma from "../config/prisma.js";
 import { signToken } from "../utils/jwt.js";
 import crypto from "crypto";
 
+const buildSafeName = (value, fallback) => {
+  const name = (value || "").toString().trim();
+  if (name) return name;
+  return fallback || "";
+};
+
+const fetchGoogleTokenInfo = async (idToken) => {
+  const res = await fetch(
+    `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`
+  );
+  if (!res.ok) {
+    throw new Error("INVALID_GOOGLE_TOKEN");
+  }
+  const data = await res.json();
+  if (!data?.email || !data?.sub) {
+    throw new Error("INVALID_GOOGLE_TOKEN");
+  }
+  if (process.env.GOOGLE_CLIENT_ID && data.aud !== process.env.GOOGLE_CLIENT_ID) {
+    throw new Error("GOOGLE_AUD_MISMATCH");
+  }
+  return data;
+};
+
+const GOOGLE_ERROR_STATUS = {
+  MINORISTA_DISABLED: 403,
+  ID_TOKEN_REQUIRED: 400,
+  INVALID_GOOGLE_TOKEN: 401,
+  GOOGLE_AUD_MISMATCH: 401,
+  ACCOUNT_EXISTS_DIFFERENT_PROVIDER: 409,
+};
+
 export const register = async (req, res) => {
   try {
     const { email, password, rol } = req.body;
@@ -18,7 +49,9 @@ export const register = async (req, res) => {
       data: {
         email,
         password: hashedPassword,
-        rol: rol || "mayorista",
+        rol: rol || "MAYORISTA",
+        authProvider: "LOCAL",
+        emailVerified: false,
       },
     });
 
@@ -33,6 +66,152 @@ export const register = async (req, res) => {
   } catch (error) {
     console.error("❌ REGISTER ERROR:", error); // 👈 ESTO
     res.status(500).json({ error: "REGISTER_ERROR" });
+  }
+};
+
+export const registerMinorista = async (req, res) => {
+  try {
+    if (String(process.env.ENABLE_MINORISTA || "false").toLowerCase() !== "true") {
+      return res.status(403).json({ error: "MINORISTA_DISABLED" });
+    }
+    const { email, password, nombreCompleto, telefono, direccion, dni } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: "EMAIL_AND_PASSWORD_REQUIRED" });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: "PASSWORD_TOO_SHORT" });
+    }
+
+    const exists = await prisma.user.findUnique({ where: { email } });
+    if (exists) {
+      return res.status(400).json({ error: "USER_EXISTS" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        rol: "MINORISTA",
+        authProvider: "LOCAL",
+        emailVerified: false,
+        perfilMinorista: {
+          create: {
+            nombreCompleto: buildSafeName(nombreCompleto, email.split("@")[0]),
+            telefono: telefono || null,
+            direccion: direccion || null,
+            dni: dni || null,
+          },
+        },
+      },
+      select: {
+        id: true,
+        email: true,
+        rol: true,
+        perfilMinorista: {
+          select: {
+            nombreCompleto: true,
+            telefono: true,
+            direccion: true,
+            dni: true,
+          },
+        },
+      },
+    });
+
+    res.status(201).json({
+      message: "USER_CREATED",
+      user,
+    });
+  } catch (error) {
+    console.error("REGISTER_MINORISTA_ERROR:", error);
+    res.status(500).json({ error: "REGISTER_ERROR" });
+  }
+};
+
+export const loginWithGoogle = async (req, res) => {
+  try {
+    if (String(process.env.ENABLE_MINORISTA || "false").toLowerCase() !== "true") {
+      return res.status(403).json({ error: "MINORISTA_DISABLED" });
+    }
+    const { idToken } = req.body;
+    if (!idToken) {
+      return res.status(400).json({ error: "ID_TOKEN_REQUIRED" });
+    }
+
+    const tokenInfo = await fetchGoogleTokenInfo(idToken);
+    const email = tokenInfo.email.toLowerCase();
+    const googleId = tokenInfo.sub;
+    const emailVerified = tokenInfo.email_verified === "true" || tokenInfo.email_verified === true;
+    const nombreCompleto = buildSafeName(
+      tokenInfo.name,
+      tokenInfo.given_name || tokenInfo.family_name || email.split("@")[0]
+    );
+
+    let user = await prisma.user.findFirst({
+      where: {
+        OR: [{ googleId }, { email }],
+      },
+      include: { perfilMinorista: true },
+    });
+
+    if (user && user.authProvider === "LOCAL" && !user.googleId) {
+      return res.status(400).json({ error: "ACCOUNT_EXISTS_DIFFERENT_PROVIDER" });
+    }
+
+    if (!user) {
+      const randomPassword = crypto.randomBytes(32).toString("hex");
+      const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+      user = await prisma.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          rol: "MINORISTA",
+          authProvider: "GOOGLE",
+          googleId,
+          emailVerified,
+          perfilMinorista: {
+            create: {
+              nombreCompleto,
+            },
+          },
+        },
+        include: { perfilMinorista: true },
+      });
+    } else {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          authProvider: "GOOGLE",
+          googleId,
+          emailVerified,
+        },
+        include: { perfilMinorista: true },
+      });
+    }
+
+    const token = signToken({
+      id: user.id,
+      email: user.email,
+      rol: user.rol,
+    });
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        rol: user.rol,
+        perfilMinorista: user.perfilMinorista || null,
+      },
+    });
+  } catch (error) {
+    console.error("GOOGLE_LOGIN_ERROR:", error);
+    const errorCode = error?.message || "GOOGLE_LOGIN_ERROR";
+    res.status(GOOGLE_ERROR_STATUS[errorCode] || 500).json({ error: errorCode });
   }
 };
 

@@ -1,6 +1,8 @@
 import prisma from "../config/prisma.js";
 
-export const getFavoritesService = async (userId) => {
+const isMinoristaRole = (role) => String(role || "").toUpperCase() === "MINORISTA";
+
+export const getFavoritesService = async (userId, userRole) => {
   try {
     const favorites = await prisma.favorite.findMany({
       where: {
@@ -18,16 +20,22 @@ export const getFavoritesService = async (userId) => {
       },
     });
 
-    return favorites.map((fav) => fav.product);
+    return favorites
+      .map((fav) => fav.product)
+      .filter(
+        (product) =>
+          product &&
+          product.activo &&
+          (!isMinoristaRole(userRole) || (product.web && Number(product.stock || 0) > 0))
+      );
   } catch (error) {
     console.error("Error en getFavoritesService:", error);
     throw new Error("Error al obtener favoritos");
   }
 };
 
-export const addFavoriteService = async (userId, productId) => {
+export const addFavoriteService = async (userId, productId, userRole) => {
   try {
- 
     const product = await prisma.product.findUnique({
       where: { id: productId },
     });
@@ -37,10 +45,13 @@ export const addFavoriteService = async (userId, productId) => {
     }
 
     if (!product.activo) {
-      throw new Error("El producto no está disponible");
+      throw new Error("El producto no esta disponible");
     }
 
-    // Verificar si ya existe el favorito
+    if (isMinoristaRole(userRole) && (!product.web || Number(product.stock || 0) <= 0)) {
+      throw new Error("El producto no esta disponible");
+    }
+
     const existingFavorite = await prisma.favorite.findUnique({
       where: {
         userId_productId: {
@@ -54,7 +65,6 @@ export const addFavoriteService = async (userId, productId) => {
       return existingFavorite;
     }
 
-    // Crear el favorito
     const favorite = await prisma.favorite.create({
       data: {
         userId,
@@ -103,7 +113,7 @@ export const removeFavoriteService = async (userId, productId) => {
   }
 };
 
-export const toggleFavoriteService = async (userId, productId) => {
+export const toggleFavoriteService = async (userId, productId, userRole) => {
   try {
     const existingFavorite = await prisma.favorite.findUnique({
       where: {
@@ -117,10 +127,10 @@ export const toggleFavoriteService = async (userId, productId) => {
     if (existingFavorite) {
       await removeFavoriteService(userId, productId);
       return { isFavorite: false };
-    } else {
-      await addFavoriteService(userId, productId);
-      return { isFavorite: true };
     }
+
+    await addFavoriteService(userId, productId, userRole);
+    return { isFavorite: true };
   } catch (error) {
     console.error("Error en toggleFavoriteService:", error);
     throw error;

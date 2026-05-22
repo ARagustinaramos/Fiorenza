@@ -2,15 +2,23 @@
 
 import { Eye } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../../../context/AuthContext";
+import { Modal } from "../../../components/ui/Modal";
+import { buildApiUrl } from "../../../lib/api";
+import { getShippingLabel } from "../../../lib/shipping";
+
+const WHATSAPP_NUMBER = "5491169758185";
 
 export default function Pedidos() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [paymentMessage, setPaymentMessage] = useState("");
+  const [paymentResult, setPaymentResult] = useState(null);
 
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -21,6 +29,9 @@ export default function Pedidos() {
     const userRole = user?.rol?.toUpperCase();
     if (userRole === "MAYORISTA") {
       return "/mayorista";
+    }
+    if (userRole === "MINORISTA") {
+      return "/minorista";
     }
     return "/";
   };
@@ -38,9 +49,7 @@ export default function Pedidos() {
         return;
       }
 
-      const apiUrl =
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
-      const res = await fetch(`${apiUrl}/orders/me`, {
+      const res = await fetch(buildApiUrl("/orders/me"), {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -74,6 +83,41 @@ export default function Pedidos() {
   }, []);
 
   useEffect(() => {
+    const mpStatus = searchParams.get("mp_status");
+    if (!mpStatus) return;
+    const orderId = searchParams.get("orderId");
+
+    if (mpStatus === "success") {
+      setPaymentResult({
+        status: "success",
+        message: "Tu pago se acredito correctamente. Contactate con nosotros para coordinar el envio.",
+        orderId,
+      });
+    } else if (mpStatus === "pending") {
+      const pendingMessage = "El pago quedo pendiente. Te mostraremos el pedido apenas Mercado Pago lo confirme.";
+      setPaymentMessage(pendingMessage);
+      setPaymentResult({
+        status: "pending",
+        message: pendingMessage,
+        orderId,
+      });
+      fetchOrders({ silent: true });
+    } else if (mpStatus === "failure") {
+      const failureMessage =
+        "No pudimos completar el pago. Si Mercado Pago lo rechazo o la operacion fallo, podes intentarlo nuevamente con otro medio de pago o revisar los datos ingresados.";
+      setPaymentMessage(failureMessage);
+      setPaymentResult({
+        status: "failure",
+        message: failureMessage,
+        orderId,
+      });
+    }
+
+    const nextUrl = "/dashboard/pedidos";
+    router.replace(nextUrl);
+  }, [router, searchParams]);
+
+  useEffect(() => {
     if (selectedOrder) return;
 
     const interval = setInterval(() => {
@@ -105,6 +149,7 @@ export default function Pedidos() {
     const statusMap = {
       PENDING: "bg-yellow-100 text-yellow-800",
       CONFIRMED: "bg-red-100 text-red-800",
+      DESPACHADO: "bg-emerald-100 text-emerald-800",
     };
     return statusMap[status] || "bg-gray-100 text-gray-800";
   };
@@ -113,6 +158,7 @@ export default function Pedidos() {
     const statusMap = {
       PENDING: "Pendiente",
       CONFIRMED: "Confirmado",
+      DESPACHADO: "Despachado",
     };
     return statusMap[status] || status;
   };
@@ -122,15 +168,25 @@ export default function Pedidos() {
     return `#ORD-${id.substring(0, 8).toUpperCase()}`;
   };
 
+  const paymentOrder = paymentResult?.orderId
+    ? orders.find((order) => order.id === paymentResult.orderId) || null
+    : orders[0] || null;
+
+  const paymentOrderNumber = paymentOrder?.id
+    ? formatOrderNumber(paymentOrder.id)
+    : "tu pedido";
+
+  const whatsappMessage = `Hola, acabo de realizar una compra. Mi numero de pedido es ${paymentOrderNumber} y mi mail es ${user?.email || "sin email"}. Quisiera coordinar el envio.`;
+  const whatsappLink = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
+    whatsappMessage
+  )}`;
+
   const openOrderDetail = async (orderId) => {
     try {
       setDetailLoading(true);
 
       const token = localStorage.getItem("token");
-      const apiUrl =
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
-
-      const res = await fetch(`${apiUrl}/orders/${orderId}`, {
+      const res = await fetch(buildApiUrl(`/orders/${orderId}`), {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -156,10 +212,7 @@ export default function Pedidos() {
     const refreshDetail = async () => {
       try {
         const token = localStorage.getItem("token");
-        const apiUrl =
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
-
-        const res = await fetch(`${apiUrl}/orders/${selectedOrder.id}`, {
+        const res = await fetch(buildApiUrl(`/orders/${selectedOrder.id}`), {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -183,7 +236,58 @@ export default function Pedidos() {
 
   return (
     <div className="max-w-7xl mx-auto">
+      <Modal open={Boolean(paymentResult)} onClose={() => setPaymentResult(null)}>
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">
+              {paymentResult?.status === "pending"
+                ? "Pago pendiente"
+                : paymentResult?.status === "failure"
+                  ? "Pago no completado"
+                  : "Pago realizado con exito"}
+            </h2>
+            <p className="mt-2 text-sm text-gray-600">{paymentResult?.message}</p>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+            <p>
+              <span className="font-semibold text-gray-900">Pedido:</span>{" "}
+              {paymentOrderNumber}
+            </p>
+            <p className="mt-2 break-all">
+              <span className="font-semibold text-gray-900">Mail:</span>{" "}
+              {user?.email || "sin email"}
+            </p>
+          </div>
+
+          {paymentResult?.status === "success" && (
+            <a
+              href={whatsappLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full rounded-xl bg-green-600 px-5 py-3 text-center font-semibold text-white transition hover:bg-green-700"
+            >
+              Abrir WhatsApp
+            </a>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setPaymentResult(null)}
+            className="w-full rounded-xl border border-gray-300 px-5 py-3 text-center font-semibold text-gray-700 transition hover:bg-gray-50"
+          >
+            Cerrar
+          </button>
+        </div>
+      </Modal>
+
             <h1 className="text-4xl font-bold mb-8">Mis Pedidos</h1>
+
+            {paymentMessage && (
+              <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                {paymentMessage}
+              </div>
+            )}
 
             <div className="bg-white rounded-lg border border-[#D9D9D9] overflow-hidden shadow-sm">
               
@@ -329,6 +433,30 @@ export default function Pedidos() {
               <p>
                 <strong>Total:</strong> {formatPrice(selectedOrder.totalAmount)}
               </p>
+              {selectedOrder.shippingMethod && (
+                <>
+                  <p>
+                    <strong>Metodo de envio:</strong>{" "}
+                    {getShippingLabel(selectedOrder.shippingMethod)}
+                  </p>
+                  <p>
+                    <strong>Zona:</strong>{" "}
+                    {selectedOrder.shippingZone
+                      ? getShippingLabel(selectedOrder.shippingZone)
+                      : "No aplica"}
+                  </p>
+                  <p>
+                    <strong>Caja:</strong>{" "}
+                    {selectedOrder.shippingBoxSize
+                      ? getShippingLabel(selectedOrder.shippingBoxSize)
+                      : "No aplica"}
+                  </p>
+                  <p>
+                    <strong>Envio estimado:</strong>{" "}
+                    {formatPrice(selectedOrder.shippingEstimatedCost || 0)}
+                  </p>
+                </>
+              )}
             </div>
 
             <div className="border-t my-4" />

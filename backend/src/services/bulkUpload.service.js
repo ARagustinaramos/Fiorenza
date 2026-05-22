@@ -1,23 +1,13 @@
 import ExcelJS from "exceljs";
 import fs from "fs/promises";
+import fsSync from "fs";
 import path from "path";
 import prisma from "../config/prisma.js";
+import csvParser from "csv-parser";
 
 const CHUNK_SIZE = Number(process.env.BULK_CHUNK_SIZE || 500);
 const PARALLELISM = Number(process.env.BULK_PARALLELISM || 20);
 const BATCH_DELAY_MS = Number(process.env.BULK_BATCH_DELAY_MS || 0);
-
-const runInBatches = async (items, batchSize, handler) => {
-  for (let i = 0; i < items.length; i += batchSize) {
-    const slice = items.slice(i, i + batchSize);
-    const results = await Promise.all(slice.map(handler));
-    for (const r of results) {
-      if (r !== undefined) {
-        // allow caller to collect results if needed
-      }
-    }
-  }
-};
 
 const normalizeHeader = (text) => {
   if (text === null || text === undefined) return "";
@@ -87,6 +77,7 @@ const HEADER_ALIASES = new Map([
   ["NOVEDADES", ["NOVEDADES"]],
   ["OFERTAS", ["OFERTAS"]],
   ["BAJA", ["BAJA"]],
+  ["WEB", ["WEB"]],
 ]);
 
 const sanitizeText = (value) => {
@@ -161,6 +152,7 @@ const mapExcelToProduct = (row) => ({
   esNovedad: normalizeBoolean(row["NOVEDADES"]),
   esOferta: normalizeBoolean(row["OFERTAS"]),
   baja: normalizeBoolean(row["BAJA"]),
+  web: normalizeBoolean(row["WEB"]),
 });
 
 // Helper para sincronizar Marcas y Familias en lote
@@ -220,6 +212,31 @@ const loadWorkbookFromFile = async (filePath) => {
   return workbook;
 };
 
+const loadCsvRows = async (filePath) => {
+  const preview = await fs.readFile(filePath, "utf8").catch(() => "");
+  const firstLine = preview.split(/\r?\n/)[0] || "";
+  const delimiter = firstLine.includes(";") ? ";" : ",";
+
+  return new Promise((resolve, reject) => {
+    const rows = [];
+    let headers = [];
+    fsSync
+      .createReadStream(filePath)
+      .pipe(
+        csvParser({
+          separator: delimiter,
+          mapHeaders: ({ header }) => resolveCanonicalHeader(header),
+        })
+      )
+      .on("headers", (h) => {
+        headers = Array.isArray(h) ? h : [];
+      })
+      .on("data", (data) => rows.push(data))
+      .on("error", reject)
+      .on("end", () => resolve({ headers, rows }));
+  });
+};
+
 const findHeaderRow = (worksheet, mode) => {
   const maxScanRows = Math.min(20, worksheet.rowCount);
   const requiredForMode =
@@ -272,7 +289,11 @@ const withRetry = async (fn, retries = 3) => {
   }
 };
 
-export const runBulkUpload = async ({ filePath, mode = "upsert", onProgress }) => {
+export const runBulkUpload = async ({
+  filePath,
+  mode = "upsert",
+  onProgress,
+}) => {
   if (mode === "replace") {
     await withRetry(() =>
       prisma.product.updateMany({
@@ -281,7 +302,8 @@ export const runBulkUpload = async ({ filePath, mode = "upsert", onProgress }) =
     );
   }
 
-  const workbook = await loadWorkbookFromFile(filePath);
+  const ext = path.extname(filePath).toLowerCase();
+  const workbook = ext === ".csv" ? null : await loadWorkbookFromFile(filePath);
 
   let totalRows = 0;
   let inserted = 0;
@@ -309,11 +331,214 @@ export const runBulkUpload = async ({ filePath, mode = "upsert", onProgress }) =
 
   let processedSheetCount = 0;
 
-  for (const worksheet of workbook.worksheets) {
-    const headerInfo = findHeaderRow(worksheet, mode);
-    if (!headerInfo) {
-      continue;
+  const handleBatch = async (batch, worksheetName) => {
+    if (batch.length === 0) return;
+
+    if (mode === "delete") {
+      const validDeletes = [];
+      for (const { item, rowNumber } of batch) {
+        if (!item.codigoInterno) {
+          skipped++;
+          errors.push({
+            sheet: worksheetName,
+            row: rowNumber,
+            error: "MISSING_CODE",
+          });
+        } else {
+          validDeletes.push(item.codigoInterno);
+        }
+      }
+
+          if (validDeletes.length > 0) {
+            const result = await prisma.product.updateMany({
+              where: { codigoInterno: { in: validDeletes } },
+              data: { activo: false },
+            });
+            inserted += result.count;
+          }
+
+      notifyProgress();
+      if (BATCH_DELAY_MS > 0) {
+        await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
+      }
+      return;
     }
+
+    await withRetry(() =>
+      syncMetadata(batch.map((b) => b.item), brandCache, familyCache)
+    );
+
+    const codigos = batch.map((b) => b.item.codigoInterno).filter(Boolean);
+    const existingProducts = await withRetry(() =>
+      prisma.product.findMany({
+        where: { codigoInterno: { in: codigos } },
+      })
+    );
+
+    const productMap = new Map();
+    existingProducts.forEach((p) => productMap.set(p.codigoInterno, p));
+
+    const toCreate = [];
+    const toUpdate = [];
+
+    const perRowErrors = [];
+
+    batch.forEach(({ item, rowNumber }) => {
+      try {
+        const validationErrors = [];
+        if (!item.codigoInterno) validationErrors.push("MISSING_CODE");
+        if (isNaN(item.precioConIva) || item.precioConIva <= 0)
+          validationErrors.push("INVALID_PRICE");
+
+        if (validationErrors.length) {
+          throw new Error(validationErrors.join("|"));
+        }
+
+        const marca = brandCache.get(item.marcaNombre);
+        const familia = familyCache.get(item.familiaNombre);
+        const existingProduct = productMap.get(item.codigoInterno);
+
+        const commonData = {
+          codigoInterno: item.codigoInterno,
+          codigoOriginal: item.codigoOriginal,
+          codigoProveedor: item.codigoProveedor,
+          proveedor: item.proveedor,
+          descripcion: item.descripcion,
+          descripcionAdicional: item.descripcionAdicional,
+          precioConIva: item.precioConIva,
+          precioMayoristaSinIva: item.precioMayoristaSinIva,
+          stock: item.stock,
+          marcaId: marca ? marca.id : null,
+          familiaId: familia ? familia.id : null,
+          rubro: item.rubro,
+          esOferta: item.esOferta,
+          esNovedad: item.esNovedad,
+          activo: true,
+          web: item.web,
+        };
+
+        if (mode === "update") {
+          if (!existingProduct) {
+            perRowErrors.push({ status: "skipped" });
+            return;
+          }
+          toUpdate.push({ id: existingProduct.id, data: commonData });
+          return;
+        }
+
+        if (mode === "create") {
+          if (existingProduct) {
+            if (!existingProduct.activo) {
+              toUpdate.push({ id: existingProduct.id, data: commonData });
+              return;
+            }
+            perRowErrors.push({ status: "skipped" });
+            return;
+          }
+          toCreate.push(commonData);
+          return;
+        }
+
+        if (existingProduct) {
+          toUpdate.push({ id: existingProduct.id, data: commonData });
+        } else {
+          toCreate.push(commonData);
+        }
+        return;
+      } catch (err) {
+        perRowErrors.push({
+          status: "error",
+          sheet: worksheetName,
+          row: rowNumber,
+          error: err.message.split("|"),
+        });
+      }
+    });
+
+    if (toCreate.length > 0) {
+      const created = await withRetry(() =>
+        prisma.product.createMany({
+          data: toCreate,
+          skipDuplicates: true,
+        })
+      );
+      inserted += created.count;
+    }
+
+    for (let i = 0; i < toUpdate.length; i += PARALLELISM) {
+      const slice = toUpdate.slice(i, i + PARALLELISM);
+      const settled = await Promise.all(
+        slice.map(({ id, data }) =>
+          withRetry(() =>
+            prisma.product.update({
+              where: { id },
+              data,
+            })
+          )
+        )
+      );
+      inserted += settled.length;
+    }
+
+    perRowErrors.forEach((r) => {
+      if (r.status === "skipped") skipped++;
+      if (r.status === "error") {
+        skipped++;
+        errors.push({ sheet: r.sheet, row: r.row, error: r.error });
+      }
+    });
+
+    notifyProgress();
+    if (BATCH_DELAY_MS > 0) {
+      await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
+    }
+  };
+
+  if (ext === ".csv") {
+    const { headers, rows } = await loadCsvRows(filePath);
+    const requiredForMode =
+      mode === "delete" ? ["CODIGO INTERNO"] : REQUIRED_COLUMNS;
+
+    const hasRequired = requiredForMode.every((required) =>
+      headers.includes(required)
+    );
+    if (!hasRequired) {
+      processedSheetCount = 0;
+    } else {
+      processedSheetCount = 1;
+      let batch = [];
+      for (let index = 0; index < rows.length; index++) {
+        const row = rows[index];
+        totalRows++;
+        try {
+          const item = mapExcelToProduct(row);
+          batch.push({ item, rowNumber: index + 2 });
+        } catch (err) {
+          skipped++;
+          errors.push({
+            sheet: "CSV",
+            row: index + 2,
+            error: err.message.split("|"),
+          });
+        }
+
+        if (batch.length === CHUNK_SIZE) {
+          const pending = batch;
+          batch = [];
+          await handleBatch(pending, "CSV");
+        }
+      }
+
+      if (batch.length > 0) {
+        await handleBatch(batch, "CSV");
+      }
+    }
+  } else {
+    for (const worksheet of workbook.worksheets) {
+      const headerInfo = findHeaderRow(worksheet, mode);
+      if (!headerInfo) {
+        continue;
+      }
 
     processedSheetCount += 1;
     const headers = headerInfo.headers;
@@ -321,9 +546,9 @@ export const runBulkUpload = async ({ filePath, mode = "upsert", onProgress }) =
 
     let batch = [];
 
-    for (let i = firstDataRow; i <= worksheet.rowCount; i++) {
-      const row = worksheet.getRow(i);
-      totalRows++;
+      for (let i = firstDataRow; i <= worksheet.rowCount; i++) {
+        const row = worksheet.getRow(i);
+        totalRows++;
 
       const rowData = {};
       headers.forEach((header, idx) => {
@@ -343,166 +568,9 @@ export const runBulkUpload = async ({ filePath, mode = "upsert", onProgress }) =
       }
 
         if (batch.length === CHUNK_SIZE || i === worksheet.rowCount) {
-          if (batch.length === 0) continue;
-
-        if (mode === "delete") {
-          const validDeletes = [];
-          for (const { item, rowNumber } of batch) {
-            if (!item.codigoInterno) {
-              skipped++;
-              errors.push({
-                sheet: worksheet.name,
-                row: rowNumber,
-                error: "MISSING_CODE",
-              });
-            } else {
-              validDeletes.push(item.codigoInterno);
-            }
-          }
-
-          if (validDeletes.length > 0) {
-            const result = await prisma.product.updateMany({
-              where: { codigoInterno: { in: validDeletes } },
-              data: { activo: false },
-            });
-            inserted += result.count;
-          }
-
+          const pending = batch;
           batch = [];
-          notifyProgress();
-          if (BATCH_DELAY_MS > 0) {
-            await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
-          }
-          continue;
-        }
-
-        await withRetry(() =>
-          syncMetadata(batch.map((b) => b.item), brandCache, familyCache)
-        );
-
-        const codigos = batch.map((b) => b.item.codigoInterno).filter(Boolean);
-        const existingProducts = await withRetry(() =>
-          prisma.product.findMany({
-            where: { codigoInterno: { in: codigos } },
-          })
-        );
-
-        const productMap = new Map();
-        existingProducts.forEach((p) => productMap.set(p.codigoInterno, p));
-
-        const toCreate = [];
-        const toUpdate = [];
-
-        const perRowErrors = [];
-
-        batch.forEach(({ item, rowNumber }) => {
-          try {
-            const validationErrors = [];
-            if (!item.codigoInterno) validationErrors.push("MISSING_CODE");
-            if (isNaN(item.precioConIva) || item.precioConIva <= 0)
-              validationErrors.push("INVALID_PRICE");
-
-            if (validationErrors.length) {
-              throw new Error(validationErrors.join("|"));
-            }
-
-            const marca = brandCache.get(item.marcaNombre);
-            const familia = familyCache.get(item.familiaNombre);
-            const existingProduct = productMap.get(item.codigoInterno);
-
-            const commonData = {
-              codigoInterno: item.codigoInterno,
-              codigoOriginal: item.codigoOriginal,
-              codigoProveedor: item.codigoProveedor,
-              proveedor: item.proveedor,
-              descripcion: item.descripcion,
-              descripcionAdicional: item.descripcionAdicional,
-              precioConIva: item.precioConIva,
-              precioMayoristaSinIva: item.precioMayoristaSinIva,
-              stock: item.stock,
-              marcaId: marca ? marca.id : null,
-              familiaId: familia ? familia.id : null,
-              rubro: item.rubro,
-              esOferta: item.esOferta,
-              esNovedad: item.esNovedad,
-              activo: true,
-            };
-
-            if (mode === "update") {
-              if (!existingProduct) {
-                perRowErrors.push({ status: "skipped" });
-                return;
-              }
-              toUpdate.push({ id: existingProduct.id, data: commonData });
-              return;
-            }
-
-            if (mode === "create") {
-              if (existingProduct) {
-                if (!existingProduct.activo) {
-                  toUpdate.push({ id: existingProduct.id, data: commonData });
-                  return;
-                }
-                perRowErrors.push({ status: "skipped" });
-                return;
-              }
-              toCreate.push(commonData);
-              return;
-            }
-
-            if (existingProduct) {
-              toUpdate.push({ id: existingProduct.id, data: commonData });
-            } else {
-              toCreate.push(commonData);
-            }
-            return;
-          } catch (err) {
-            perRowErrors.push({
-              status: "error",
-              sheet: worksheet.name,
-              row: rowNumber,
-              error: err.message.split("|"),
-            });
-          }
-        });
-
-        if (toCreate.length > 0) {
-          const created = await withRetry(() =>
-            prisma.product.createMany({
-              data: toCreate,
-              skipDuplicates: true,
-            })
-          );
-          inserted += created.count;
-        }
-
-        for (let i = 0; i < toUpdate.length; i += PARALLELISM) {
-          const slice = toUpdate.slice(i, i + PARALLELISM);
-          const settled = await Promise.all(
-            slice.map(({ id, data }) =>
-              withRetry(() =>
-                prisma.product.update({
-                  where: { id },
-                  data,
-                })
-              )
-            )
-          );
-          inserted += settled.length;
-        }
-
-        perRowErrors.forEach((r) => {
-          if (r.status === "skipped") skipped++;
-          if (r.status === "error") {
-            skipped++;
-            errors.push({ sheet: r.sheet, row: r.row, error: r.error });
-          }
-        });
-
-        batch = [];
-        notifyProgress();
-        if (BATCH_DELAY_MS > 0) {
-          await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
+          await handleBatch(pending, worksheet.name);
         }
       }
     }

@@ -1,5 +1,9 @@
 import prisma from "../config/prisma.js";
 import bcrypt from "bcryptjs";
+import {
+  SHIPPING_PROFILE_REQUIRED_FIELDS,
+  normalizeText,
+} from "../utils/shipping.utils.js";
 
 export const getUsers = async (req, res) => {
   try {
@@ -16,6 +20,18 @@ export const getUsers = async (req, res) => {
             cuitCuil: true,
             empresa: true,
             cargo: true,
+          },
+        },
+        perfilMinorista: {
+          select: {
+            nombreCompleto: true,
+            telefono: true,
+            direccion: true,
+            ciudad: true,
+            provincia: true,
+            codigoPostal: true,
+            referencia: true,
+            dni: true,
           },
         },
       },
@@ -47,6 +63,18 @@ export const getMyProfile = async (req, res) => {
             avatarUrl: true,
           },
         },
+        perfilMinorista: {
+          select: {
+            nombreCompleto: true,
+            telefono: true,
+            direccion: true,
+            ciudad: true,
+            provincia: true,
+            codigoPostal: true,
+            referencia: true,
+            dni: true,
+          },
+        },
       },
     });
 
@@ -71,6 +99,12 @@ export const updateMyProfile = async (req, res) => {
       cargo,
       coeficienteVenta,
       avatarUrl,
+      direccion,
+      ciudad,
+      provincia,
+      codigoPostal,
+      referencia,
+      dni,
     } = req.body;
 
     console.log("[DEBUG updateMyProfile] Datos recibidos:", {
@@ -81,53 +115,109 @@ export const updateMyProfile = async (req, res) => {
       cargo,
       coeficienteVenta,
       avatarUrl,
+      direccion,
+      ciudad,
+      provincia,
+      codigoPostal,
+      referencia,
+      dni,
     });
 
     if (!nombreCompleto || nombreCompleto.trim() === "") {
       return res.status(400).json({ error: "NOMBRE_COMPLETO_REQUIRED" });
     }
 
-    if (!cuitCuil || cuitCuil.trim() === "") {
-      return res.status(400).json({ error: "CUIT_CUIL_REQUIRED" });
-    }
+    const isMinorista = req.user.rol === "MINORISTA";
 
-    if (!empresa || empresa.trim() === "") {
-      return res.status(400).json({ error: "EMPRESA_REQUIRED" });
-    }
+    if (!isMinorista) {
+      if (!cuitCuil || cuitCuil.trim() === "") {
+        return res.status(400).json({ error: "CUIT_CUIL_REQUIRED" });
+      }
 
-    if (
-      coeficienteVenta !== undefined &&
-      (isNaN(coeficienteVenta) || coeficienteVenta < 0 || coeficienteVenta > 500)
-    ) {
-      return res.status(400).json({ error: "INVALID_COEFICIENTE_VENTA" });
+      if (!empresa || empresa.trim() === "") {
+        return res.status(400).json({ error: "EMPRESA_REQUIRED" });
+      }
+
+      if (
+        coeficienteVenta !== undefined &&
+        (isNaN(coeficienteVenta) || coeficienteVenta < 0 || coeficienteVenta > 500)
+      ) {
+        return res.status(400).json({ error: "INVALID_COEFICIENTE_VENTA" });
+      }
+    } else {
+      const minoristaProfile = {
+        nombreCompleto,
+        telefono,
+        direccion,
+        ciudad,
+        provincia,
+        codigoPostal,
+      };
+      const missingFields = SHIPPING_PROFILE_REQUIRED_FIELDS.filter(
+        (field) => !normalizeText(minoristaProfile[field])
+      );
+
+      if (missingFields.length > 0) {
+        return res.status(400).json({
+          error: "MINORISTA_SHIPPING_PROFILE_INCOMPLETE",
+          fields: missingFields,
+        });
+      }
     }
 
     const user = await prisma.user.update({
       where: { id: userId },
-      data: {
-        perfil: {
-          upsert: {
-            update: {
-              nombreCompleto,
-              telefono,
-              cuitCuil,
-              empresa,
-              cargo,
-              coeficienteVenta,
-              avatarUrl,
+      data: isMinorista
+        ? {
+            perfilMinorista: {
+              upsert: {
+                update: {
+                  nombreCompleto,
+                  telefono,
+                  direccion,
+                  ciudad,
+                  provincia,
+                  codigoPostal,
+                  referencia,
+                  dni,
+                },
+                create: {
+                  nombreCompleto,
+                  telefono: telefono || null,
+                  direccion: direccion || null,
+                  ciudad: ciudad || null,
+                  provincia: provincia || null,
+                  codigoPostal: codigoPostal || null,
+                  referencia: referencia || null,
+                  dni: dni || null,
+                },
+              },
             },
-            create: {
-              nombreCompleto,
-              telefono,
-              cuitCuil,
-              empresa,
-              cargo,
-              coeficienteVenta,
-              avatarUrl: avatarUrl || null,
+          }
+        : {
+            perfil: {
+              upsert: {
+                update: {
+                  nombreCompleto,
+                  telefono,
+                  cuitCuil,
+                  empresa,
+                  cargo,
+                  coeficienteVenta,
+                  avatarUrl,
+                },
+                create: {
+                  nombreCompleto,
+                  telefono,
+                  cuitCuil,
+                  empresa,
+                  cargo,
+                  coeficienteVenta,
+                  avatarUrl: avatarUrl || null,
+                },
+              },
             },
           },
-        },
-      },
       select: {
         id: true,
         email: true,
@@ -141,6 +231,18 @@ export const updateMyProfile = async (req, res) => {
             cargo: true,
             coeficienteVenta: true,
             avatarUrl: true,
+          },
+        },
+        perfilMinorista: {
+          select: {
+            nombreCompleto: true,
+            telefono: true,
+            direccion: true,
+            ciudad: true,
+            provincia: true,
+            codigoPostal: true,
+            referencia: true,
+            dni: true,
           },
         },
       },
@@ -175,6 +277,18 @@ export const getUserById = async (req, res) => {
             coeficienteVenta: true,
           },
         },
+        perfilMinorista: {
+          select: {
+            nombreCompleto: true,
+            telefono: true,
+            direccion: true,
+            ciudad: true,
+            provincia: true,
+            codigoPostal: true,
+            referencia: true,
+            dni: true,
+          },
+        },
       },
     });
 
@@ -192,7 +306,22 @@ export const getUserById = async (req, res) => {
 export const updateUserById = async (req, res) => {
   try {
     const { id } = req.params;
-    const { activo, coeficiente, nombreCompleto, telefono, cuitCuil, empresa, cargo, password } = req.body;
+    const {
+      activo,
+      coeficiente,
+      nombreCompleto,
+      telefono,
+      cuitCuil,
+      empresa,
+      cargo,
+      password,
+      direccion,
+      ciudad,
+      provincia,
+      codigoPostal,
+      referencia,
+      dni,
+    } = req.body;
 
     // Validar que el usuario existe
     const user = await prisma.user.findUnique({
@@ -220,32 +349,67 @@ export const updateUserById = async (req, res) => {
       updateData.password = await bcrypt.hash(password, 10);
     }
 
+    const isMinorista = user.rol === "MINORISTA";
+
     // Si hay datos de perfil, actualizar también
     if (
       nombreCompleto !== undefined ||
       telefono !== undefined ||
       cuitCuil !== undefined ||
       empresa !== undefined ||
-      cargo !== undefined
+      cargo !== undefined ||
+      direccion !== undefined ||
+      ciudad !== undefined ||
+      provincia !== undefined ||
+      codigoPostal !== undefined ||
+      referencia !== undefined ||
+      dni !== undefined
     ) {
-      updateData.perfil = {
-        upsert: {
-          update: {
-            ...(nombreCompleto && { nombreCompleto }),
-            ...(telefono && { telefono }),
-            ...(cuitCuil && { cuitCuil }),
-            ...(empresa && { empresa }),
-            ...(cargo && { cargo }),
+      if (isMinorista) {
+        updateData.perfilMinorista = {
+          upsert: {
+            update: {
+              ...(nombreCompleto && { nombreCompleto }),
+              ...(telefono && { telefono }),
+              ...(direccion && { direccion }),
+              ...(ciudad && { ciudad }),
+              ...(provincia && { provincia }),
+              ...(codigoPostal && { codigoPostal }),
+              ...(referencia && { referencia }),
+              ...(dni && { dni }),
+            },
+            create: {
+              nombreCompleto: nombreCompleto || "",
+              telefono: telefono || null,
+              direccion: direccion || null,
+              ciudad: ciudad || null,
+              provincia: provincia || null,
+              codigoPostal: codigoPostal || null,
+              referencia: referencia || null,
+              dni: dni || null,
+            },
           },
-          create: {
-            nombreCompleto: nombreCompleto || "",
-            telefono: telefono || "",
-            cuitCuil: cuitCuil || "",
-            empresa: empresa || "",
-            cargo: cargo || "",
+        };
+      } else {
+        updateData.perfil = {
+          upsert: {
+            update: {
+              ...(nombreCompleto && { nombreCompleto }),
+              ...(telefono && { telefono }),
+              ...(cuitCuil && { cuitCuil }),
+              ...(empresa && { empresa }),
+              ...(cargo && { cargo }),
+            },
+            create: {
+              nombreCompleto: nombreCompleto || "",
+              telefono: telefono || "",
+              cuitCuil: cuitCuil || "",
+              empresa: empresa || "",
+              cargo: cargo || "",
+            },
           },
-        },
-      };
+        };
+      }
     }
 
     const updatedUser = await prisma.user.update({
@@ -267,6 +431,18 @@ export const updateUserById = async (req, res) => {
             coeficienteVenta: true,
           },
         },
+        perfilMinorista: {
+          select: {
+            nombreCompleto: true,
+            telefono: true,
+            direccion: true,
+            ciudad: true,
+            provincia: true,
+            codigoPostal: true,
+            referencia: true,
+            dni: true,
+          },
+        },
       },
     });
 
@@ -279,7 +455,20 @@ export const updateUserById = async (req, res) => {
 };
 
 export const createUser = async (req, res) => {
-  const { email, password, rol, nombreCompleto } = req.body;
+  const {
+    email,
+    password,
+    rol,
+    nombreCompleto,
+    telefono,
+    direccion,
+    ciudad,
+    provincia,
+    codigoPostal,
+    referencia,
+    dni,
+  } = req.body;
+  const userRole = (rol || "MAYORISTA").toUpperCase();
 
   if (!email || !password) {
     return res.status(400).json({ error: "EMAIL_AND_PASSWORD_REQUIRED" });
@@ -304,23 +493,45 @@ export const createUser = async (req, res) => {
     data: {
       email,
       password: hashed,
-      rol,
+      rol: userRole,
       activo: true,
-      perfil: {
-        create: {
-          nombreCompleto: String(nombreCompleto).trim(),
-          cuitCuil: "",
-          empresa: "",
-          telefono: "",
-          cargo: "",
-        },
-      },
+      ...(userRole === "MINORISTA"
+        ? {
+            perfilMinorista: {
+              create: {
+                nombreCompleto: String(nombreCompleto).trim(),
+                telefono: telefono || null,
+                direccion: direccion || null,
+                ciudad: ciudad || null,
+                provincia: provincia || null,
+                codigoPostal: codigoPostal || null,
+                referencia: referencia || null,
+                dni: dni || null,
+              },
+            },
+          }
+        : {
+            perfil: {
+              create: {
+                nombreCompleto: String(nombreCompleto).trim(),
+                cuitCuil: "",
+                empresa: "",
+                telefono: "",
+                cargo: "",
+              },
+            },
+          }),
     },
     select: {
       id: true,
       email: true,
       rol: true,
       perfil: {
+        select: {
+          nombreCompleto: true,
+        },
+      },
+      perfilMinorista: {
         select: {
           nombreCompleto: true,
         },
@@ -334,7 +545,8 @@ export const createUser = async (req, res) => {
       id: user.id,
       email: user.email,
       rol: user.rol,
-      nombreCompleto: user.perfil?.nombreCompleto || "",
+      nombreCompleto:
+        user.perfil?.nombreCompleto || user.perfilMinorista?.nombreCompleto || "",
     },
   });
 };

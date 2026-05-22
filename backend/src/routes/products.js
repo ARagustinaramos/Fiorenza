@@ -19,6 +19,7 @@ import {
   updateProductFlags,
   getMarcasFiltro,
   getRubrosFiltro,
+  getLowStockProducts,
 } from "../controllers/product/products.controller.js";
 
 const router = express.Router();
@@ -66,6 +67,7 @@ router.post(
 router.get("/offers", getOfferProducts);
 router.get("/new", getNewProducts);
 router.get("/featured", getFeaturedProducts);
+router.get("/low-stock", auth, requireRole("ADMIN"), getLowStockProducts);
 
 router.get("/", optionalAuth, getProducts);
 router.get("/:id", optionalAuth, getProductById);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { buildApiUrl } from "../lib/api";
 
 const DEFAULT_IMAGE =
   "https://images.unsplash.com/photo-1643142314913-0cf633d9bbb5?auto=format&fit=crop&w=1600&q=80";
@@ -8,13 +9,10 @@ const DEFAULT_IMAGE =
 export function Hero() {
   const [heroImage, setHeroImage] = useState(null);
 
-  const apiUrl =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
-
   useEffect(() => {
     const fetchHero = async () => {
       try {
-        const res = await fetch(`${apiUrl}/banners`, {
+        const res = await fetch(buildApiUrl("/banners"), {
           cache: "no-store",
         });
         const data = await res.json();
@@ -33,7 +31,7 @@ export function Hero() {
     };
 
     fetchHero();
-  }, [apiUrl]);
+  }, []);
 
   if (!heroImage) {
     return (
