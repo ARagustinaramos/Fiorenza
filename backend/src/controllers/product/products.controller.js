@@ -58,7 +58,7 @@ const shouldFilterWebOnly = (req) => {
   return req?.user?.rol === "MINORISTA";
 };
 
-const shouldHideOutOfStock = (req) => req?.user?.rol !== "ADMIN";
+const shouldHideOutOfStock = (req) => req?.user?.rol === "MINORISTA";
 
 const buildWebStockFilter = (req) =>
   shouldFilterWebOnly(req) && shouldHideOutOfStock(req)
@@ -257,6 +257,8 @@ export const getProducts = async (req, res) => {
           OR immutable_unaccent(LOWER(p."descripcionAdicional")) ILIKE '%' || LOWER(${safeWord}) || '%'
           OR LOWER(p."codigoInterno") ILIKE '%' || LOWER(${safeWord}) || '%'
           OR CAST(p."codigoOriginal" AS TEXT) ILIKE '%' || ${safeWord} || '%'
+          OR CAST(p."codigoProveedor" AS TEXT) ILIKE '%' || ${safeWord} || '%'
+          OR immutable_unaccent(LOWER(p.proveedor)) ILIKE '%' || LOWER(${safeWord}) || '%'
         )`;
       });
 
