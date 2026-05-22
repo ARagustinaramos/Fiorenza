@@ -5,7 +5,7 @@ export const SHIPPING_METHODS = {
 };
 
 export const SHIPPING_ZONES = {
-  BUENOS_AIRES: "BUENOS_AIRES",
+  PROVINCIA: "PROVINCIA",
   INTERIOR: "INTERIOR",
 };
 
@@ -17,18 +17,33 @@ export const SHIPPING_BOX_SIZES = {
 };
 
 export const SHIPPING_PRICES = {
-  [SHIPPING_ZONES.BUENOS_AIRES]: {
-    [SHIPPING_BOX_SIZES.CAJA_1]: 8000,
-    [SHIPPING_BOX_SIZES.CAJA_2]: 14000,
-    [SHIPPING_BOX_SIZES.CAJA_3]: 22000,
-    [SHIPPING_BOX_SIZES.CAJA_4]: 30000,
+  [SHIPPING_ZONES.PROVINCIA]: {
+    [SHIPPING_METHODS.CORREO_ARGENTINO]: {
+      [SHIPPING_BOX_SIZES.CAJA_1]: 11000,
+      [SHIPPING_BOX_SIZES.CAJA_2]: 16000,
+      [SHIPPING_BOX_SIZES.CAJA_3]: 33000,
+      [SHIPPING_BOX_SIZES.CAJA_4]: 45000,
+    },
+    [SHIPPING_METHODS.VIA_CARGO]: {
+      [SHIPPING_BOX_SIZES.CAJA_1]: 23000,
+      [SHIPPING_BOX_SIZES.CAJA_2]: 23000,
+      [SHIPPING_BOX_SIZES.CAJA_3]: 27000,
+      [SHIPPING_BOX_SIZES.CAJA_4]: 63000,
+    },
   },
   [SHIPPING_ZONES.INTERIOR]: {
-    [SHIPPING_BOX_SIZES.CAJA_1]: 14000,
-    [SHIPPING_BOX_SIZES.CAJA_2]: 24000,
-    [SHIPPING_BOX_SIZES.CAJA_3]: 38000,
-    [SHIPPING_BOX_SIZES.CAJA_4]: 50000,
-
+    [SHIPPING_METHODS.CORREO_ARGENTINO]: {
+      [SHIPPING_BOX_SIZES.CAJA_1]: 11000,
+      [SHIPPING_BOX_SIZES.CAJA_2]: 16000,
+      [SHIPPING_BOX_SIZES.CAJA_3]: 33000,
+      [SHIPPING_BOX_SIZES.CAJA_4]: 45000,
+    },
+    [SHIPPING_METHODS.VIA_CARGO]: {
+      [SHIPPING_BOX_SIZES.CAJA_1]: 20000,
+      [SHIPPING_BOX_SIZES.CAJA_2]: 20000,
+      [SHIPPING_BOX_SIZES.CAJA_3]: 22000,
+      [SHIPPING_BOX_SIZES.CAJA_4]: 46000,
+    },
   },
 };
 
@@ -45,7 +60,7 @@ export const SHIPPING_FIELD_LABELS = {
   [SHIPPING_METHODS.CORREO_ARGENTINO]: "Correo Argentino",
   [SHIPPING_METHODS.VIA_CARGO]: "Via Cargo",
   [SHIPPING_METHODS.RETIRO_EN_LOCAL]: "Retiro en local",
-  [SHIPPING_ZONES.BUENOS_AIRES]: "Buenos Aires",
+  [SHIPPING_ZONES.PROVINCIA]: "Provincia",
   [SHIPPING_ZONES.INTERIOR]: "Interior del pais",
   [SHIPPING_BOX_SIZES.CAJA_1]: "Caja 1 - 20x20x20 (hasta aprox. 2kg)",
   [SHIPPING_BOX_SIZES.CAJA_2]: "Caja 2 - 30x30x30 (hasta aprox. 4.5kg)",
@@ -125,7 +140,8 @@ export const validateRetailShippingSelection = (shipping = {}) => {
     throw new Error("INVALID_SHIPPING_BOX_SIZE");
   }
 
-  const shippingEstimatedCost = SHIPPING_PRICES[normalizedZone]?.[normalizedBox];
+  const shippingEstimatedCost =
+    SHIPPING_PRICES[normalizedZone]?.[normalizedMethod]?.[normalizedBox];
   if (typeof shippingEstimatedCost !== "number") {
     throw new Error("INVALID_SHIPPING_CONFIGURATION");
   }

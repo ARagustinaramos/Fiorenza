@@ -5,7 +5,7 @@ export const SHIPPING_METHODS = {
 };
 
 export const SHIPPING_ZONES = {
-  BUENOS_AIRES: "BUENOS_AIRES",
+  PROVINCIA: "PROVINCIA",
   INTERIOR: "INTERIOR",
 };
 
@@ -17,17 +17,33 @@ export const SHIPPING_BOX_SIZES = {
 };
 
 export const SHIPPING_PRICES = {
-  [SHIPPING_ZONES.BUENOS_AIRES]: {
-    [SHIPPING_BOX_SIZES.CAJA_1]: 8000,
-    [SHIPPING_BOX_SIZES.CAJA_2]: 14000,
-    [SHIPPING_BOX_SIZES.CAJA_3]: 22000,
-    [SHIPPING_BOX_SIZES.CAJA_4]: 30000,
+  [SHIPPING_ZONES.PROVINCIA]: {
+    [SHIPPING_METHODS.CORREO_ARGENTINO]: {
+      [SHIPPING_BOX_SIZES.CAJA_1]: 11000,
+      [SHIPPING_BOX_SIZES.CAJA_2]: 16000,
+      [SHIPPING_BOX_SIZES.CAJA_3]: 33000,
+      [SHIPPING_BOX_SIZES.CAJA_4]: 45000,
+    },
+    [SHIPPING_METHODS.VIA_CARGO]: {
+      [SHIPPING_BOX_SIZES.CAJA_1]: 23000,
+      [SHIPPING_BOX_SIZES.CAJA_2]: 23000,
+      [SHIPPING_BOX_SIZES.CAJA_3]: 27000,
+      [SHIPPING_BOX_SIZES.CAJA_4]: 63000,
+    },
   },
   [SHIPPING_ZONES.INTERIOR]: {
-    [SHIPPING_BOX_SIZES.CAJA_1]: 14000,
-    [SHIPPING_BOX_SIZES.CAJA_2]: 24000,
-    [SHIPPING_BOX_SIZES.CAJA_3]: 38000,
-    [SHIPPING_BOX_SIZES.CAJA_4]: 50000,
+    [SHIPPING_METHODS.CORREO_ARGENTINO]: {
+      [SHIPPING_BOX_SIZES.CAJA_1]: 11000,
+      [SHIPPING_BOX_SIZES.CAJA_2]: 16000,
+      [SHIPPING_BOX_SIZES.CAJA_3]: 33000,
+      [SHIPPING_BOX_SIZES.CAJA_4]: 45000,
+    },
+    [SHIPPING_METHODS.VIA_CARGO]: {
+      [SHIPPING_BOX_SIZES.CAJA_1]: 20000,
+      [SHIPPING_BOX_SIZES.CAJA_2]: 20000,
+      [SHIPPING_BOX_SIZES.CAJA_3]: 22000,
+      [SHIPPING_BOX_SIZES.CAJA_4]: 46000,
+    },
   },
 };
 
@@ -63,13 +79,13 @@ export const SHIPPING_METHOD_OPTIONS = [
 
 export const SHIPPING_ZONE_OPTIONS = [
   {
-    value: SHIPPING_ZONES.BUENOS_AIRES,
-    label: "Buenos Aires",
-    description: "CABA + GBA + Provincia de Buenos Aires",
+    value: SHIPPING_ZONES.PROVINCIA,
+    label: "Provincia",
+    description: "Envios dentro de provincia",
   },
   {
     value: SHIPPING_ZONES.INTERIOR,
-    label: "Interior del pais",
+    label: "Interior",
     description: "Todo el resto del pais",
   },
 ];
@@ -101,7 +117,7 @@ const SHIPPING_LABELS = {
   [SHIPPING_METHODS.CORREO_ARGENTINO]: "Correo Argentino",
   [SHIPPING_METHODS.VIA_CARGO]: "Via Cargo",
   [SHIPPING_METHODS.RETIRO_EN_LOCAL]: "Retiro en local",
-  [SHIPPING_ZONES.BUENOS_AIRES]: "Buenos Aires",
+  [SHIPPING_ZONES.PROVINCIA]: "Provincia",
   [SHIPPING_ZONES.INTERIOR]: "Interior del pais",
   [SHIPPING_BOX_SIZES.CAJA_1]: "Caja 1",
   [SHIPPING_BOX_SIZES.CAJA_2]: "Caja 2",
@@ -126,7 +142,7 @@ export const getEstimatedShippingCost = ({ shippingMethod, shippingZone, shippin
     return null;
   }
 
-  return SHIPPING_PRICES[shippingZone]?.[shippingBoxSize] ?? null;
+  return SHIPPING_PRICES[shippingZone]?.[shippingMethod]?.[shippingBoxSize] ?? null;
 };
 
 export const getShippingLabel = (value) => SHIPPING_LABELS[value] || value || "-";

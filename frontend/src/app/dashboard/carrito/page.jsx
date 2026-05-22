@@ -51,7 +51,7 @@ export default function Carrito() {
   const [paymentError, setPaymentError] = useState("");
   const [shippingSelection, setShippingSelection] = useState({
     shippingMethod: SHIPPING_METHODS.CORREO_ARGENTINO,
-    shippingZone: SHIPPING_ZONES.BUENOS_AIRES,
+    shippingZone: SHIPPING_ZONES.PROVINCIA,
     shippingBoxSize: SHIPPING_BOX_SIZES.CAJA_1,
   });
 

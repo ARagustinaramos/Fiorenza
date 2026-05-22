@@ -4,10 +4,26 @@ import { Navbar } from "../../components/Navbar";
 import { Sidebar } from "../../components/Sidebar";
 import { Footer } from "../../components/Footer";
 import { ProductCardsMinorista } from "../../components/products/ProductCardsMinorista";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function MinoristaPage() {
+  const router = useRouter();
   const [sidebarContent, setSidebarContent] = useState(null);
+  const enableMinorista =
+    String(process.env.NEXT_PUBLIC_ENABLE_MINORISTA || "false").toLowerCase() ===
+    "true";
+
+  useEffect(() => {
+    if (!enableMinorista) {
+      router.replace("/login");
+    }
+  }, [enableMinorista, router]);
+
+  if (!enableMinorista) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />

@@ -8,6 +8,9 @@ import { Home, User, ShoppingBag, Download } from "lucide-react";
 export function Sidebar({ children }) {
   const pathname = usePathname();
   const { user } = useAuth();
+  const enableMinorista =
+    String(process.env.NEXT_PUBLIC_ENABLE_MINORISTA || "false").toLowerCase() ===
+    "true";
 
   const userRole = user?.rol?.toUpperCase() || null;
 
@@ -15,7 +18,7 @@ export function Sidebar({ children }) {
 
   const getProductsPath = () => {
     if (userRole === "MAYORISTA") return "/mayorista";
-    if (userRole === "MINORISTA") return "/minorista";
+    if (userRole === "MINORISTA") return enableMinorista ? "/minorista" : "/login";
     return "/";
   };
 
