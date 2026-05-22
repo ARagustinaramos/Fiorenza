@@ -9,7 +9,7 @@ import {
 export const getFavorites = async (req, res) => {
   try {
     const userId = req.user.id;
-    const products = await getFavoritesService(userId);
+    const products = await getFavoritesService(userId, req.user.rol);
 
     res.json(products);
   } catch (error) {
@@ -29,7 +29,7 @@ export const addFavorite = async (req, res) => {
       return res.status(400).json({ error: "productId es requerido" });
     }
 
-    const product = await addFavoriteService(userId, productId);
+    const product = await addFavoriteService(userId, productId, req.user.rol);
 
     res.status(201).json(product);
   } catch (error) {
@@ -69,7 +69,7 @@ export const toggleFavorite = async (req, res) => {
       return res.status(400).json({ error: "productId es requerido" });
     }
 
-    const result = await toggleFavoriteService(userId, productId);
+    const result = await toggleFavoriteService(userId, productId, req.user.rol);
 
     res.json(result);
   } catch (error) {
