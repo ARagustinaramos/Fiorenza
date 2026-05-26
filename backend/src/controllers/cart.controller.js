@@ -8,26 +8,37 @@ const getUnitPrice = (product, userRole) => {
   return Number(product.precioConIva ?? product.precioMayoristaSinIva ?? 0);
 };
 
-const normalizeCartItemsByAvailability = (items, userRole) => {
+const normalizeCartItems = (items, userRole) => {
   const role = String(userRole || "").toUpperCase();
 
   return items.reduce(
     (acc, item) => {
       const product = item.product;
-      const stock = Number(product?.stock || 0);
 
-      const isAvailable =
-        product &&
-        product.activo &&
-        stock > 0 &&
-        (role !== "MINORISTA" || product.web);
-
-      if (!isAvailable) {
+      if (!product) {
         acc.removedIds.push(item.id);
         return acc;
       }
 
-      const normalizedQuantity = Math.max(1, Math.min(Math.floor(item.quantity), stock));
+      if (
+        role === "MINORISTA" &&
+        (!product.activo || !product.web || Number(product.stock || 0) <= 0)
+      ) {
+        acc.removedIds.push(item.id);
+        return acc;
+      }
+
+      const normalizedQuantity =
+        role === "MINORISTA"
+          ? Math.max(
+              1,
+              Math.min(
+                Math.floor(Number(item.quantity) || 0),
+                Number(product.stock || 0)
+              )
+            )
+          : Math.max(1, Math.floor(Number(item.quantity) || 0));
+
       acc.items.push({
         ...item,
         quantity: normalizedQuantity,
@@ -73,10 +84,7 @@ export const getMyCart = async (req, res) => {
       return res.json({ items: [] });
     }
 
-    const normalizedCart = normalizeCartItemsByAvailability(
-      cart.items,
-      req.user?.rol
-    );
+    const normalizedCart = normalizeCartItems(cart.items, req.user?.rol);
 
     if (normalizedCart.removedIds.length || normalizedCart.updatedItems.length) {
       await prisma.$transaction(async (tx) => {
@@ -114,6 +122,7 @@ export const replaceMyCart = async (req, res) => {
     const productIds = [...new Set(normalized.map((item) => item.productId))];
 
     const role = String(req.user?.rol || "").toUpperCase();
+
     let sanitizedItems = normalized.map((item) => ({
       ...item,
       quantity: Math.floor(item.quantity),
@@ -123,12 +132,16 @@ export const replaceMyCart = async (req, res) => {
       const existingProducts = await prisma.product.findMany({
         where: {
           id: { in: productIds },
-          activo: true,
+          ...(role === "MINORISTA" ? { activo: true } : {}),
         },
         select: {
           id: true,
-          stock: true,
-          web: true,
+          ...(role === "MINORISTA"
+            ? {
+                stock: true,
+                web: true,
+              }
+            : {}),
         },
       });
 
@@ -138,20 +151,30 @@ export const replaceMyCart = async (req, res) => {
 
       sanitizedItems = sanitizedItems.reduce((acc, item) => {
         const product = productsById.get(item.productId);
-        const stock = Number(product?.stock || 0);
 
-        if (!product || stock <= 0) {
+        if (!product) {
           return acc;
         }
 
-        if (role === "MINORISTA" && !product.web) {
+        if (
+          role === "MINORISTA" &&
+          (!product.web || Number(product.stock || 0) <= 0)
+        ) {
           return acc;
         }
 
-        const quantity = Math.max(1, Math.min(item.quantity, stock));
         acc.push({
           productId: item.productId,
-          quantity,
+          quantity:
+            role === "MINORISTA"
+              ? Math.max(
+                  1,
+                  Math.min(
+                    Math.floor(Number(item.quantity) || 0),
+                    Number(product.stock || 0)
+                  )
+                )
+              : Math.max(1, Math.floor(Number(item.quantity) || 0)),
         });
         return acc;
       }, []);
@@ -191,7 +214,7 @@ export const replaceMyCart = async (req, res) => {
     });
 
     const normalizedCart = updatedCart
-      ? normalizeCartItemsByAvailability(updatedCart.items, req.user?.rol)
+      ? normalizeCartItems(updatedCart.items, req.user?.rol)
       : { items: [] };
 
     return res.json({

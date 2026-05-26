@@ -121,7 +121,7 @@ export const createOrderService = async ({ user, type, items, shipping }) => {
           })
           : null;
 
-      return tx.order.create({
+      const order = await tx.order.create({
         data: {
           userId: user.id,
           type,
@@ -148,6 +148,19 @@ export const createOrderService = async ({ user, type, items, shipping }) => {
           },
         },
       });
+
+      const cart = await tx.cart.findUnique({
+        where: { userId: user.id },
+        select: { id: true },
+      });
+
+      if (cart) {
+        await tx.cartItem.deleteMany({
+          where: { cartId: cart.id },
+        });
+      }
+
+      return order;
     }, TX_OPTIONS)
   );
 };
@@ -611,33 +624,46 @@ export const createOrderFromSnapshot = async ({
             ? Number(totalAmount)
             : total;
 
-      return tx.order.create({
-  data: {
-    userId: user.id,
-    type,
-    totalAmount: totalToUse,
-    status: "PENDING",
-    ...(shippingSnapshot || {}),
-    items: {
-      create: orderItemsData,
-    },
-  },
-  include: {
-    items: {
-      include: {
-        product: true,
-      },
-    },
-    user: {
-      select: {
-        email: true,
-        rol: true,
-        perfil: true,
-        perfilMinorista: true,
-      },
-    },
-  },
-});;
+      const order = await tx.order.create({
+        data: {
+          userId: user.id,
+          type,
+          totalAmount: totalToUse,
+          status: "PENDING",
+          ...(shippingSnapshot || {}),
+          items: {
+            create: orderItemsData,
+          },
+        },
+        include: {
+          items: {
+            include: {
+              product: true,
+            },
+          },
+          user: {
+            select: {
+              email: true,
+              rol: true,
+              perfil: true,
+              perfilMinorista: true,
+            },
+          },
+        },
+      });
+
+      const cart = await tx.cart.findUnique({
+        where: { userId: user.id },
+        select: { id: true },
+      });
+
+      if (cart) {
+        await tx.cartItem.deleteMany({
+          where: { cartId: cart.id },
+        });
+      }
+
+      return order;
     }, TX_OPTIONS)
   );
 };
