@@ -87,7 +87,7 @@ export const createOrderService = async ({ user, type, items, shipping }) => {
           throw new Error(`PRODUCT_NOT_AVAILABLE: Producto con ID ${item.productId} no estÃ¡ disponible para minorista`);
         }
 
-        if (product.stock < item.quantity) {
+        if (type === "MINORISTA" && product.stock < item.quantity) {
           console.error(`Stock insuficiente: producto=${item.productId}, stock=${product.stock}, cantidad=${item.quantity}`);
           throw new Error(`INSUFFICIENT_STOCK: Stock insuficiente para producto ${item.productId}`);
         }
@@ -277,31 +277,33 @@ export const confirmOrderService = async (orderId) => {
       if (!order) throw new Error("ORDER_NOT_FOUND");
       if (order.status !== "PENDING") throw new Error("ORDER_NOT_PENDING");
 
-      const productIds = [...new Set(order.items.map((item) => item.productId))];
-      const products = await tx.product.findMany({
-        where: { id: { in: productIds } },
-        select: { id: true, stock: true },
-      });
-      const productById = new Map(products.map((product) => [product.id, product]));
-
-      for (const item of order.items) {
-        const product = productById.get(item.productId);
-        if (!product) throw new Error("PRODUCT_NOT_FOUND");
-
-        if (product.stock < item.quantity) {
-          throw new Error("INSUFFICIENT_STOCK");
-        }
-      }
-
-      for (const item of order.items) {
-        await tx.product.update({
-          where: { id: item.productId },
-          data: {
-            stock: {
-              decrement: item.quantity,
-            },
-          },
+      if (String(order.type || "").toUpperCase() === "MINORISTA") {
+        const productIds = [...new Set(order.items.map((item) => item.productId))];
+        const products = await tx.product.findMany({
+          where: { id: { in: productIds } },
+          select: { id: true, stock: true },
         });
+        const productById = new Map(products.map((product) => [product.id, product]));
+
+        for (const item of order.items) {
+          const product = productById.get(item.productId);
+          if (!product) throw new Error("PRODUCT_NOT_FOUND");
+
+          if (product.stock < item.quantity) {
+            throw new Error("INSUFFICIENT_STOCK");
+          }
+        }
+
+        for (const item of order.items) {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: {
+              stock: {
+                decrement: item.quantity,
+              },
+            },
+          });
+        }
       }
 
       return tx.order.update({
@@ -342,7 +344,7 @@ export const cancelOrderService = async (orderId) => {
       throw new Error("ORDER_ALREADY_CANCELLED");
     }
 
-    if (order.status === "CONFIRMED") {
+    if (order.status === "CONFIRMED" && String(order.type || "").toUpperCase() === "MINORISTA") {
       for (const item of order.items) {
         await tx.product.update({
           where: { id: item.productId },
@@ -507,7 +509,7 @@ export const previewOrderService = async ({ user, type, items }) => {
       throw new Error("PRODUCT_NOT_AVAILABLE");
     }
 
-    if (product.stock < item.quantity) {
+    if (type === "MINORISTA" && product.stock < item.quantity) {
       throw new Error("INSUFFICIENT_STOCK");
     }
 
@@ -597,7 +599,7 @@ export const createOrderFromSnapshot = async ({
           throw new Error(`PRODUCT_NOT_AVAILABLE: Producto con ID ${item.productId} no está disponible para minorista`);
         }
 
-        if (product.stock < item.quantity) {
+        if (type === "MINORISTA" && product.stock < item.quantity) {
           throw new Error(`INSUFFICIENT_STOCK: Stock insuficiente para producto ${item.productId}`);
         }
 
