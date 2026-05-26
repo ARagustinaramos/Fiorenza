@@ -64,13 +64,20 @@ export const createOrderService = async ({ user, type, items, shipping }) => {
     prisma.$transaction(async (tx) => {
       let total = 0;
       const orderItemsData = [];
+      const requestedItems = items.map((item) => ({
+        productId: String(item.productId || "").trim(),
+        quantity: Number(item.quantity),
+      }));
+      const productIds = [...new Set(requestedItems.map((item) => item.productId).filter(Boolean))];
+      const products = await tx.product.findMany({
+        where: { id: { in: productIds } },
+      });
+      const productsById = new Map(products.map((product) => [product.id, product]));
 
-      for (const item of items) {
+      for (const item of requestedItems) {
         console.log(`Procesando item: productId=${item.productId}, quantity=${item.quantity}`);
 
-        const product = await tx.product.findUnique({
-          where: { id: item.productId },
-        });
+        const product = productsById.get(item.productId);
 
         if (!product) {
           console.error(`Producto no encontrado: ${item.productId}`);
@@ -495,11 +502,18 @@ export const previewOrderService = async ({ user, type, items }) => {
 
   let total = 0;
   const orderItems = [];
+  const requestedItems = items.map((item) => ({
+    productId: String(item.productId || "").trim(),
+    quantity: Number(item.quantity),
+  }));
+  const productIds = [...new Set(requestedItems.map((item) => item.productId).filter(Boolean))];
+  const products = await prisma.product.findMany({
+    where: { id: { in: productIds } },
+  });
+  const productsById = new Map(products.map((product) => [product.id, product]));
 
-  for (const item of items) {
-    const product = await prisma.product.findUnique({
-      where: { id: item.productId },
-    });
+  for (const item of requestedItems) {
+    const product = productsById.get(item.productId);
 
     if (!product || !product.activo) {
       throw new Error("PRODUCT_NOT_FOUND");
@@ -581,11 +595,20 @@ export const createOrderFromSnapshot = async ({
     prisma.$transaction(async (tx) => {
       let total = 0;
       const orderItemsData = [];
+      const requestedItems = items.map((item) => ({
+        productId: String(item.productId || "").trim(),
+        quantity: Number(item.quantity),
+        unitPrice: item.unitPrice,
+        subtotal: item.subtotal,
+      }));
+      const productIds = [...new Set(requestedItems.map((item) => item.productId).filter(Boolean))];
+      const products = await tx.product.findMany({
+        where: { id: { in: productIds } },
+      });
+      const productsById = new Map(products.map((product) => [product.id, product]));
 
-      for (const item of items) {
-        const product = await tx.product.findUnique({
-          where: { id: item.productId },
-        });
+      for (const item of requestedItems) {
+        const product = productsById.get(item.productId);
 
         if (!product) {
           throw new Error(`PRODUCT_NOT_FOUND: Producto con ID ${item.productId} no existe`);
