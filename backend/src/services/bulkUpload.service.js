@@ -315,10 +315,11 @@ export const runBulkUpload = async ({
 
   let lastProgressAt = Date.now();
 
-  const notifyProgress = () => {
+  const notifyProgress = (forceImmediate = false) => {
     if (!onProgress) return;
     const now = Date.now();
-    if (now - lastProgressAt < 5000) return;
+    // Si forceImmediate es true (para la última notificación), saltarse el throttle
+    if (!forceImmediate && now - lastProgressAt < 5000) return;
     lastProgressAt = now;
     onProgress({
       totalRows,
@@ -357,7 +358,7 @@ export const runBulkUpload = async ({
             inserted += result.count;
           }
 
-      notifyProgress();
+      notifyProgress(true);
       if (BATCH_DELAY_MS > 0) {
         await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
       }
@@ -488,7 +489,7 @@ export const runBulkUpload = async ({
       }
     });
 
-    notifyProgress();
+    notifyProgress(true);
     if (BATCH_DELAY_MS > 0) {
       await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
     }
@@ -587,6 +588,9 @@ export const runBulkUpload = async ({
       `No se encontro una hoja con columnas requeridas: ${REQUIRED_COLUMNS.join(", ")}`
     );
   }
+
+  // Notificación final forzada para asegurar que todos los contadores se escriban en la BD
+  notifyProgress(true);
 
   return {
     totalRows,

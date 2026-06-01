@@ -14,6 +14,8 @@ const safeUnlink = async (target) => {
   } catch {}
 };
 
+let lastProgress = null;
+
 const run = async () => {
   if (!jobId || !filePath) {
     process.exit(1);
@@ -22,7 +24,10 @@ const run = async () => {
   try {
     await prisma.bulkUploadJob.update({
       where: { id: jobId },
-      data: { status: "PROCESSING", startedAt: new Date() },
+      data: {
+        status: "PROCESSING",
+        startedAt: new Date(),
+      },
     });
 
     const result = await runBulkUpload({
@@ -30,6 +35,8 @@ const run = async () => {
       mode,
       onProgress: async (progress) => {
         try {
+          lastProgress = progress;
+
           await prisma.bulkUploadJob.update({
             where: { id: jobId },
             data: {
@@ -39,7 +46,9 @@ const run = async () => {
               errorsCount: progress.errorsCount,
             },
           });
-        } catch {}
+        } catch (err) {
+          console.error("[BULK UPLOAD PROGRESS ERROR]", err);
+        }
       },
     });
 
@@ -56,18 +65,34 @@ const run = async () => {
       },
     });
   } catch (error) {
-    await prisma.bulkUploadJob.update({
-      where: { id: jobId },
-      data: {
-        status: "FAILED",
-        finishedAt: new Date(),
-        errorMessage: error.message,
-      },
-    });
+    try {
+      await prisma.bulkUploadJob.update({
+        where: { id: jobId },
+        data: {
+          status: "FAILED",
+          finishedAt: new Date(),
+          errorMessage: error.message,
+
+          ...(lastProgress && {
+            totalRows: lastProgress.totalRows,
+            inserted: lastProgress.inserted,
+            skipped: lastProgress.skipped,
+            errorsCount: lastProgress.errorsCount,
+          }),
+        },
+      });
+    } catch (updateErr) {
+      console.error("[BULK UPLOAD UPDATE ERROR]", updateErr);
+    }
   } finally {
     await safeUnlink(filePath);
     await prisma.$disconnect();
   }
 };
 
-run().then(() => process.exit(0));
+run()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error("[BULK UPLOAD ERROR]", err);
+    process.exit(1);
+  });
