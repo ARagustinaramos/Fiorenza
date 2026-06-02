@@ -5,8 +5,7 @@ import path from "path";
 import prisma from "../config/prisma.js";
 import csvParser from "csv-parser";
 
-const CHUNK_SIZE = Number(process.env.BULK_CHUNK_SIZE || 500);
-const PARALLELISM = Number(process.env.BULK_PARALLELISM || 20);
+const CHUNK_SIZE = Number(process.env.BULK_CHUNK_SIZE || 2000);
 const BATCH_DELAY_MS = Number(process.env.BULK_BATCH_DELAY_MS || 0);
 
 const normalizeHeader = (text) => {
@@ -136,6 +135,18 @@ const parseOptionalText = (value) => {
   return text === "" ? null : text;
 };
 
+const readFirstLine = async (filePath) => {
+  const handle = await fs.open(filePath, "r");
+  try {
+    const buffer = Buffer.alloc(8192);
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+    const preview = buffer.subarray(0, bytesRead).toString("utf8");
+    return preview.split(/\r?\n/)[0] || "";
+  } finally {
+    await handle.close();
+  }
+};
+
 const mapExcelToProduct = (row) => ({
   codigoInterno: sanitizeText(row["CODIGO INTERNO"]),
   codigoOriginal: (row["CODIGO ORIGINAL"]?.toString() ?? "").trim(),
@@ -200,8 +211,7 @@ const loadWorkbookFromFile = async (filePath) => {
   const workbook = new ExcelJS.Workbook();
   const ext = path.extname(filePath).toLowerCase();
   if (ext === ".csv") {
-    const preview = await fs.readFile(filePath, "utf8").catch(() => "");
-    const firstLine = preview.split(/\r?\n/)[0] || "";
+    const firstLine = await readFirstLine(filePath).catch(() => "");
     const delimiter = firstLine.includes(";") ? ";" : ",";
     await workbook.csv.readFile(filePath, {
       parserOptions: { delimiter },
@@ -213,8 +223,7 @@ const loadWorkbookFromFile = async (filePath) => {
 };
 
 const loadCsvRows = async (filePath) => {
-  const preview = await fs.readFile(filePath, "utf8").catch(() => "");
-  const firstLine = preview.split(/\r?\n/)[0] || "";
+  const firstLine = await readFirstLine(filePath).catch(() => "");
   const delimiter = firstLine.includes(";") ? ";" : ",";
 
   return new Promise((resolve, reject) => {
@@ -287,6 +296,69 @@ const withRetry = async (fn, retries = 3) => {
       await new Promise((r) => setTimeout(r, delay));
     }
   }
+};
+
+const updateProductsBatch = async (items) => {
+  if (items.length === 0) return 0;
+
+  // Si el archivo trae el mismo producto mas de una vez en el mismo lote,
+  // dejamos ganar la ultima aparicion para que el update masivo sea deterministico.
+  const rowsById = new Map();
+  items.forEach(({ id, data }) => {
+    rowsById.set(id, { id, ...data });
+  });
+
+  const payload = JSON.stringify(Array.from(rowsById.values()));
+
+  return prisma.$executeRaw`
+    UPDATE "Product" AS p
+    SET
+      "codigoInterno" = v."codigoInterno",
+      "codigoOriginal" = v."codigoOriginal",
+      "codigoProveedor" = v."codigoProveedor",
+      "proveedor" = v."proveedor",
+      "descripcion" = v."descripcion",
+      "descripcionAdicional" = v."descripcionAdicional",
+      "precioConIva" = v."precioConIva",
+      "precioMayoristaSinIva" = v."precioMayoristaSinIva",
+      "stock" = v."stock",
+      "marcaId" = v."marcaId",
+      "familiaId" = v."familiaId",
+      "rubro" = v."rubro",
+      "esOferta" = v."esOferta",
+      "esNovedad" = v."esNovedad",
+      "activo" = v."activo",
+      "web" = v."web",
+      "updatedAt" = NOW()
+    FROM jsonb_to_recordset(${payload}::jsonb) AS v(
+      "id" text,
+      "codigoInterno" text,
+      "codigoOriginal" text,
+      "codigoProveedor" text,
+      "proveedor" text,
+      "descripcion" text,
+      "descripcionAdicional" text,
+      "precioConIva" double precision,
+      "precioMayoristaSinIva" double precision,
+      "stock" integer,
+      "marcaId" text,
+      "familiaId" text,
+      "rubro" text,
+      "esOferta" boolean,
+      "esNovedad" boolean,
+      "activo" boolean,
+      "web" boolean
+    )
+    WHERE p."id" = v."id"
+  `;
+};
+
+const dedupeProductsByCodigoInterno = (items) => {
+  const byCode = new Map();
+  items.forEach((item) => {
+    byCode.set(item.codigoInterno, item);
+  });
+  return Array.from(byCode.values());
 };
 
 export const runBulkUpload = async ({
@@ -373,6 +445,11 @@ export const runBulkUpload = async ({
     const existingProducts = await withRetry(() =>
       prisma.product.findMany({
         where: { codigoInterno: { in: codigos } },
+        select: {
+          id: true,
+          codigoInterno: true,
+          activo: true,
+        },
       })
     );
 
@@ -457,28 +534,19 @@ export const runBulkUpload = async ({
     });
 
     if (toCreate.length > 0) {
+      const uniqueCreates = dedupeProductsByCodigoInterno(toCreate);
       const created = await withRetry(() =>
         prisma.product.createMany({
-          data: toCreate,
+          data: uniqueCreates,
           skipDuplicates: true,
         })
       );
       inserted += created.count;
     }
 
-    for (let i = 0; i < toUpdate.length; i += PARALLELISM) {
-      const slice = toUpdate.slice(i, i + PARALLELISM);
-      const settled = await Promise.all(
-        slice.map(({ id, data }) =>
-          withRetry(() =>
-            prisma.product.update({
-              where: { id },
-              data,
-            })
-          )
-        )
-      );
-      inserted += settled.length;
+    if (toUpdate.length > 0) {
+      const updated = await withRetry(() => updateProductsBatch(toUpdate));
+      inserted += Number(updated || 0);
     }
 
     perRowErrors.forEach((r) => {
