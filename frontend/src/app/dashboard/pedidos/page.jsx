@@ -3,16 +3,19 @@
 import { Eye } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useDispatch } from "react-redux";
 import { useAuth } from "../../../context/AuthContext";
 import { Modal } from "../../../components/ui/Modal";
 import { buildApiUrl } from "../../../lib/api";
 import { getShippingLabel } from "../../../lib/shipping";
+import { clearCart } from "../../../../store/slices/cartSlice";
 
 const WHATSAPP_NUMBER = "5491169758185";
 
 export default function Pedidos() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const dispatch = useDispatch();
   const { user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -86,36 +89,85 @@ export default function Pedidos() {
     const mpStatus = searchParams.get("mp_status");
     if (!mpStatus) return;
     const orderId = searchParams.get("orderId");
+    const paymentId =
+      searchParams.get("payment_id") ||
+      searchParams.get("collection_id") ||
+      searchParams.get("paymentId");
+    const preferenceId = searchParams.get("preference_id");
 
-    if (mpStatus === "success") {
-      setPaymentResult({
-        status: "success",
-        message: "Tu pago se acredito correctamente. Contactate con nosotros para coordinar el envio.",
-        orderId,
-      });
-    } else if (mpStatus === "pending") {
-      const pendingMessage = "El pago quedo pendiente. Te mostraremos el pedido apenas Mercado Pago lo confirme.";
-      setPaymentMessage(pendingMessage);
-      setPaymentResult({
-        status: "pending",
-        message: pendingMessage,
-        orderId,
-      });
-      fetchOrders({ silent: true });
-    } else if (mpStatus === "failure") {
-      const failureMessage =
-        "No pudimos completar el pago. Si Mercado Pago lo rechazo o la operacion fallo, podes intentarlo nuevamente con otro medio de pago o revisar los datos ingresados.";
-      setPaymentMessage(failureMessage);
-      setPaymentResult({
-        status: "failure",
-        message: failureMessage,
-        orderId,
-      });
-    }
+    const syncApprovedPayment = async () => {
+      if (mpStatus !== "success" || orderId || (!paymentId && !preferenceId)) {
+        return orderId || null;
+      }
 
-    const nextUrl = "/dashboard/pedidos";
-    router.replace(nextUrl);
-  }, [router, searchParams]);
+      const token = localStorage.getItem("token");
+      if (!token) return null;
+
+      try {
+        const res = await fetch(buildApiUrl("/payments/mercadopago/sync"), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            paymentId,
+            preferenceId,
+          }),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.error || "MP_SYNC_ERROR");
+        }
+
+        if (data.paymentStatus === "PAID" && data.orderId) {
+          dispatch(clearCart());
+          await fetchOrders({ silent: true });
+          return data.orderId;
+        }
+      } catch (error) {
+        console.error("Error sincronizando pago de Mercado Pago:", error);
+      }
+
+      return null;
+    };
+
+    const handlePaymentReturn = async () => {
+      const syncedOrderId = await syncApprovedPayment();
+      const resolvedOrderId = orderId || syncedOrderId;
+
+      if (mpStatus === "success") {
+        setPaymentResult({
+          status: "success",
+          message: "Tu pago se acredito correctamente. Contactate con nosotros para coordinar el envio.",
+          orderId: resolvedOrderId,
+        });
+      } else if (mpStatus === "pending") {
+        const pendingMessage = "El pago quedo pendiente. Te mostraremos el pedido apenas Mercado Pago lo confirme.";
+        setPaymentMessage(pendingMessage);
+        setPaymentResult({
+          status: "pending",
+          message: pendingMessage,
+          orderId: resolvedOrderId,
+        });
+        fetchOrders({ silent: true });
+      } else if (mpStatus === "failure") {
+        const failureMessage =
+          "No pudimos completar el pago. Si Mercado Pago lo rechazo o la operacion fallo, podes intentarlo nuevamente con otro medio de pago o revisar los datos ingresados.";
+        setPaymentMessage(failureMessage);
+        setPaymentResult({
+          status: "failure",
+          message: failureMessage,
+          orderId: resolvedOrderId,
+        });
+      }
+
+      router.replace("/dashboard/pedidos");
+    };
+
+    handlePaymentReturn();
+  }, [dispatch, router, searchParams]);
 
   useEffect(() => {
     if (selectedOrder) return;

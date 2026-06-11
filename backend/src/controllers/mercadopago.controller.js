@@ -127,6 +127,77 @@ const fetchMp = async (endpoint, options = {}) => {
   return data;
 };
 
+const getPaymentSessionId = (payment) =>
+  payment?.external_reference ||
+  payment?.metadata?.session_id ||
+  payment?.metadata?.sessionId;
+
+const finalizePaidSession = async ({ session, payment, user }) => {
+  const mappedStatus = mapPaymentStatus(payment.status);
+
+  await prisma.mercadoPagoSession.update({
+    where: { id: session.id },
+    data: {
+      status: mappedStatus,
+    },
+  });
+
+  if (mappedStatus !== "PAID") {
+    return {
+      orderId: session.orderId || null,
+      paymentStatus: mappedStatus,
+    };
+  }
+
+  if (session.orderId) {
+    return {
+      orderId: session.orderId,
+      paymentStatus: "PAID",
+    };
+  }
+
+  const snapshot = session.cartSnapshot || {};
+  const snapshotItems = Array.isArray(snapshot.items) ? snapshot.items : [];
+
+  const createdOrder = await createOrderFromSnapshot({
+    user: user || { id: session.userId, rol: "MINORISTA" },
+    type: "MINORISTA",
+    items: snapshotItems,
+    totalAmount: Number(snapshot.total ?? session.amount),
+    shippingSnapshot: snapshot.shippingSnapshot || null,
+  });
+
+  await prisma.order.update({
+    where: { id: createdOrder.id },
+    data: {
+      paymentMethod: "mercadopago",
+      paymentRef: String(payment.id || ""),
+      paymentStatus: "PAID",
+    },
+  });
+
+  const confirmedOrder = await confirmOrderService(createdOrder.id);
+
+  await prisma.mercadoPagoSession.update({
+    where: { id: session.id },
+    data: {
+      orderId: createdOrder.id,
+      status: "PAID",
+    },
+  });
+
+  try {
+    await sendNewRetailOrderMail(confirmedOrder);
+  } catch (emailError) {
+    console.error("Error al enviar email de pedido minorista:", emailError);
+  }
+
+  return {
+    orderId: createdOrder.id,
+    paymentStatus: "PAID",
+  };
+};
+
 export const createMpPreference = async (req, res) => {
   try {
     if (String(req.user?.rol || "").toUpperCase() !== "MINORISTA") {
@@ -344,65 +415,74 @@ export const submitMpPayment = async (req, res) => {
       body: JSON.stringify(paymentPayload),
     });
 
-    const mappedStatus = mapPaymentStatus(payment.status);
-
-    await prisma.mercadoPagoSession.update({
-      where: { id: session.id },
-      data: {
-        status: mappedStatus,
-      },
+    const finalized = await finalizePaidSession({
+      session,
+      payment,
+      user: req.user,
     });
-
-    let createdOrderId = session.orderId || null;
-
-    if (mappedStatus === "PAID" && !session.orderId) {
-      const snapshot = session.cartSnapshot || {};
-      const snapshotItems = Array.isArray(snapshot.items) ? snapshot.items : [];
-
-      const createdOrder = await createOrderFromSnapshot({
-        user: req.user,
-        type: "MINORISTA",
-        items: snapshotItems,
-        totalAmount: Number(snapshot.total ?? session.amount),
-        shippingSnapshot: snapshot.shippingSnapshot || null,
-      });
-
-      await prisma.order.update({
-        where: { id: createdOrder.id },
-        data: {
-          paymentMethod: "mercadopago",
-          paymentRef: String(payment.id || ""),
-          paymentStatus: "PAID",
-        },
-      });
-
-      const confirmedOrder = await confirmOrderService(createdOrder.id);
-      await prisma.mercadoPagoSession.update({
-        where: { id: session.id },
-        data: {
-          orderId: createdOrder.id,
-          status: "PAID",
-        },
-      });
-      createdOrderId = createdOrder.id;
-
-      try {
-        await sendNewRetailOrderMail(confirmedOrder);
-      } catch (emailError) {
-        console.error("Error al enviar email de pedido minorista:", emailError);
-      }
-    }
 
     res.json({
       paymentId: payment.id,
       status: payment.status,
       statusDetail: payment.status_detail,
-      paymentStatus: mappedStatus,
-      orderId: createdOrderId,
+      paymentStatus: finalized.paymentStatus,
+      orderId: finalized.orderId,
     });
   } catch (error) {
     console.error("MP_PAYMENT_ERROR:", error);
     res.status(500).json({ error: error.message || "MP_PAYMENT_ERROR" });
+  }
+};
+
+export const syncMpPayment = async (req, res) => {
+  try {
+    if (String(req.user?.rol || "").toUpperCase() !== "MINORISTA") {
+      return res.status(403).json({ error: "ONLY_MINORISTA_ALLOWED" });
+    }
+
+    const { paymentId, preferenceId } = req.body || {};
+
+    let payment = null;
+    if (paymentId) {
+      payment = await fetchMp(`/v1/payments/${encodeURIComponent(paymentId)}`, {
+        method: "GET",
+      });
+    }
+
+    const sessionId = payment ? getPaymentSessionId(payment) : null;
+    const session = sessionId
+      ? await prisma.mercadoPagoSession.findUnique({ where: { id: sessionId } })
+      : preferenceId
+        ? await prisma.mercadoPagoSession.findUnique({ where: { preferenceId } })
+        : null;
+
+    if (!session || session.userId !== req.user.id) {
+      return res.status(404).json({ error: "SESSION_NOT_FOUND" });
+    }
+
+    if (!payment) {
+      return res.json({
+        paymentStatus: session.status,
+        orderId: session.orderId || null,
+      });
+    }
+
+    const finalized = await finalizePaidSession({
+      session,
+      payment,
+      user: req.user,
+    });
+
+    res.json({
+      paymentId: payment.id,
+      status: payment.status,
+      statusDetail: payment.status_detail,
+      paymentStatus: finalized.paymentStatus,
+      orderId: finalized.orderId,
+    });
+  } catch (error) {
+    console.error("MP_SYNC_ERROR:", error);
+    res.status(500).json({ error: error.message || "MP_SYNC_ERROR" });
   }
 };
 
@@ -421,16 +501,11 @@ export const mercadopagoWebhook = async (req, res) => {
       method: "GET",
     });
 
-    const sessionId =
-      payment.external_reference ||
-      payment.metadata?.session_id ||
-      payment.metadata?.sessionId;
+    const sessionId = getPaymentSessionId(payment);
 
     if (!sessionId) {
       return res.sendStatus(200);
     }
-
-    const mappedStatus = mapPaymentStatus(payment.status);
 
     const session = await prisma.mercadoPagoSession.findUnique({
       where: { id: sessionId },
@@ -439,50 +514,7 @@ export const mercadopagoWebhook = async (req, res) => {
       return res.sendStatus(200);
     }
 
-    await prisma.mercadoPagoSession.update({
-      where: { id: sessionId },
-      data: {
-        status: mappedStatus,
-      },
-    });
-
-    if (mappedStatus === "PAID" && !session.orderId) {
-      const snapshot = session.cartSnapshot || {};
-      const snapshotItems = Array.isArray(snapshot.items) ? snapshot.items : [];
-
-      const createdOrder = await createOrderFromSnapshot({
-        user: { id: session.userId, rol: "MINORISTA" },
-        type: "MINORISTA",
-        items: snapshotItems,
-        totalAmount: Number(snapshot.total ?? session.amount),
-        shippingSnapshot: snapshot.shippingSnapshot || null,
-      });
-
-      await prisma.order.update({
-        where: { id: createdOrder.id },
-        data: {
-          paymentMethod: "mercadopago",
-          paymentRef: String(payment.id || ""),
-          paymentStatus: "PAID",
-        },
-      });
-
-      const confirmedOrder = await confirmOrderService(createdOrder.id);
-
-      await prisma.mercadoPagoSession.update({
-        where: { id: sessionId },
-        data: {
-          orderId: createdOrder.id,
-          status: "PAID",
-        },
-      });
-
-      try {
-        await sendNewRetailOrderMail(confirmedOrder);
-      } catch (emailError) {
-        console.error("Error al enviar email de pedido minorista:", emailError);
-      }
-    }
+    await finalizePaidSession({ session, payment });
 
     return res.sendStatus(200);
   } catch (error) {

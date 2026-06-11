@@ -7,7 +7,7 @@ import { useAuth } from "../../../../context/AuthContext";
 import { useDispatch } from "react-redux";
 import { clearCart } from "../../../../../store/slices/cartSlice";
 
-const WHATSAPP_NUMBER = "5491169758185";
+const WHATSAPP_NUMBER = "5491153444546";
 const REDIRECT_SECONDS = 12;
 
 export default function ConfirmacionPagoPage() {
