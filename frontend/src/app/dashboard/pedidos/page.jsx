@@ -10,7 +10,7 @@ import { buildApiUrl } from "../../../lib/api";
 import { getShippingLabel } from "../../../lib/shipping";
 import { clearCart } from "../../../../store/slices/cartSlice";
 
-const WHATSAPP_NUMBER = "5491169758185";
+const WHATSAPP_NUMBER = "5491153444546";
 
 export default function Pedidos() {
   const router = useRouter();
@@ -95,6 +95,24 @@ export default function Pedidos() {
       searchParams.get("paymentId");
     const preferenceId = searchParams.get("preference_id");
 
+    const clearPaidCart = async () => {
+      dispatch(clearCart());
+
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      try {
+        await fetch(buildApiUrl("/cart"), {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      } catch (error) {
+        console.error("Error limpiando carrito luego del pago:", error);
+      }
+    };
+
     const syncApprovedPayment = async () => {
       if (mpStatus !== "success" || orderId || (!paymentId && !preferenceId)) {
         return orderId || null;
@@ -122,7 +140,7 @@ export default function Pedidos() {
         }
 
         if (data.paymentStatus === "PAID" && data.orderId) {
-          dispatch(clearCart());
+          await clearPaidCart();
           await fetchOrders({ silent: true });
           return data.orderId;
         }
@@ -138,6 +156,8 @@ export default function Pedidos() {
       const resolvedOrderId = orderId || syncedOrderId;
 
       if (mpStatus === "success") {
+        await clearPaidCart();
+        await fetchOrders({ silent: true });
         setPaymentResult({
           status: "success",
           message: "Tu pago se acredito correctamente. Contactate con nosotros para coordinar el envio.",
