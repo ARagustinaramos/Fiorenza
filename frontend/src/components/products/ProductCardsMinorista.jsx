@@ -439,6 +439,10 @@ export function ProductCardsMinorista({ onSidebarContent }) {
             const activeIndex = getActiveIndex(product.id);
             const activeImage =
               images[activeIndex]?.url || images[activeIndex] || null;
+            const productMarca =
+              typeof product.marca === "string"
+                ? product.marca
+                : product.marca?.nombre;
 
             return (
             <div key={product.id} className="group [perspective:1000px]">
@@ -480,7 +484,7 @@ export function ProductCardsMinorista({ onSidebarContent }) {
                       </h3>
                       <p className="text-xs text-gray-500">
                         <span className="font-semibold text-gray-700">Marca:</span>{" "}
-                        {product.marca?.nombre || "Sin marca"}
+                        {productMarca || "Sin marca"}
                       </p>
                     </div>
                     <div className="pt-3">
@@ -515,7 +519,7 @@ export function ProductCardsMinorista({ onSidebarContent }) {
                         <span className="font-semibold text-gray-800">Familia:</span>{" "}
                         {product.familia?.nombre || "-"}
                       </p>
-                      <p>
+                      <p className="text-xs leading-4 break-words">
                         <span className="font-semibold text-gray-800">Rubro:</span>{" "}
                         {product.rubro || "-"}
                       </p>
