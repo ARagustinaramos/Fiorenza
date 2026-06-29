@@ -443,6 +443,10 @@ export function ProductCardsMinorista({ onSidebarContent }) {
               typeof product.marca === "string"
                 ? product.marca
                 : product.marca?.nombre;
+            const productFamilia =
+              typeof product.familia === "string"
+                ? product.familia
+                : product.familia?.nombre;
 
             return (
             <div key={product.id} className="group [perspective:1000px]">
@@ -517,7 +521,7 @@ export function ProductCardsMinorista({ onSidebarContent }) {
                       </p>
                       <p>
                         <span className="font-semibold text-gray-800">Familia:</span>{" "}
-                        {product.familia?.nombre || "-"}
+                        {productFamilia || "-"}
                       </p>
                       <p className="text-xs leading-4 break-words">
                         <span className="font-semibold text-gray-800">Rubro:</span>{" "}
