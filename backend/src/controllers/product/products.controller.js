@@ -144,6 +144,7 @@ export const getProducts = async (req, res) => {
   try {
   const {
     q = "",
+    interno = "",
     marca,
     familia,
     rubro,
@@ -156,6 +157,7 @@ export const getProducts = async (req, res) => {
     } = req.query;
 
     const queryText = String(q || "").trim();
+    const queryInternalCode = String(interno || "").trim();
     const limitNum = Number(limit);
     const pageNum = Number(page);
     const offset = (pageNum - 1) * limitNum;
@@ -243,12 +245,17 @@ export const getProducts = async (req, res) => {
     } else if (novedad === "true") {
       filters.push(Prisma.sql`p."esNovedad" = true`);
     }
+
+    if (queryInternalCode) {
+      filters.push(Prisma.sql`LOWER(p."codigoInterno") = LOWER(${queryInternalCode})`);
+    }
+
     const words = queryText
       .split(" ")
       .map(w => w.trim())
       .filter(Boolean);
 
-    if (queryText && words.length) {
+    if (!queryInternalCode && queryText && words.length) {
       const conditions = words.map((word) => {
         const safeWord = escapeLike(word);
 
@@ -268,6 +275,7 @@ export const getProducts = async (req, res) => {
 
     const canUseWarmCache =
       !queryText &&
+      !queryInternalCode &&
       !marca &&
       !familia &&
       !rubro &&
@@ -360,6 +368,7 @@ export const getProducts = async (req, res) => {
         page: pageNum,
         limit: limitNum,
         hasQ: Boolean(queryText),
+        hasInterno: Boolean(queryInternalCode),
         words: words.length,
         marca: Boolean(marca),
         familia: Boolean(familia),
@@ -382,7 +391,7 @@ export const getProductById = async (req, res) => {
 
     const product = await prisma.product.findUnique({
       where: { id: req.params.id },
-      include: { images: true },
+      include: { images: true, marca: true, familia: true },
     });
 
     if (!product || !product.activo) {
@@ -397,8 +406,10 @@ export const getProductById = async (req, res) => {
       return res.status(404).json({ error: "Producto no encontrado" });
     }
 
-    if (req.user?.rol === "MINORISTA") {
+    const role = String(req.user?.rol || "").toUpperCase();
+    if (role !== "MAYORISTA" && role !== "ADMIN") {
       delete product.stock;
+      delete product.precioMayoristaSinIva;
     }
 
     res.json(product);

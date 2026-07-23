@@ -24,6 +24,7 @@ import {
   isShippingProfileComplete,
 } from "../../../lib/shipping";
 import { buildApiUrl } from "../../../lib/api";
+import { CartMobile } from "../../../components/cart/CartMobile";
 
 export default function Carrito() {
   const dispatch = useDispatch();
@@ -41,6 +42,7 @@ export default function Carrito() {
   const total = Number((subtotal + envio).toFixed(2));
 
   const [mounted, setMounted] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [preferenceId, setPreferenceId] = useState(null);
   const [paymentAmount, setPaymentAmount] = useState(null);
@@ -97,13 +99,20 @@ const hasCompleteShippingProfile = isShippingProfileComplete(
       return "/mayorista";
     }
     if (userRole === "MINORISTA") {
-      return "/minorista";
+      return "/#catalogo";
     }
     return "/";
   };
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const updateMobile = () => setIsMobileView(window.innerWidth < 768);
+    updateMobile();
+    window.addEventListener("resize", updateMobile);
+    return () => window.removeEventListener("resize", updateMobile);
   }, []);
 
   useEffect(() => {
@@ -173,6 +182,9 @@ const hasCompleteShippingProfile = isShippingProfileComplete(
     if (showPayment && preferenceId && mounted && window.MercadoPago && mpPublicKey) {
       const mp = new window.MercadoPago(mpPublicKey);
       const bricksBuilder = mp.bricks();
+      const paymentContainerId = isMobileView
+        ? "paymentBrick_container_mobile"
+        : "paymentBrick_container_desktop";
 
       const renderPaymentBrick = async (bricksBuilder) => {
         if (window.paymentBrickController) {
@@ -183,6 +195,7 @@ const hasCompleteShippingProfile = isShippingProfileComplete(
           initialization: {
             amount: Number(paymentAmount ?? payableTotal),
             preferenceId: preferenceId,
+            mercadoPago: mp,
           },
           customization: {
             visual: {
@@ -253,12 +266,12 @@ const hasCompleteShippingProfile = isShippingProfileComplete(
             },
           },
         };
-        window.paymentBrickController = await bricksBuilder.create("payment", "paymentBrick_container", settings);
+        window.paymentBrickController = await bricksBuilder.create("payment", paymentContainerId, settings);
         paymentBrickPreferenceRef.current = preferenceId;
       };
       renderPaymentBrick(bricksBuilder);
     }
-  }, [showPayment, preferenceId, mounted, paymentAmount, payableTotal, mpPublicKey]);
+  }, [showPayment, preferenceId, mounted, paymentAmount, payableTotal, mpPublicKey, isMobileView]);
 
   useEffect(() => {
     if (!showPayment) {
@@ -275,6 +288,9 @@ const hasCompleteShippingProfile = isShippingProfileComplete(
 
     const mp = new window.MercadoPago(mpPublicKey);
     const bricksBuilder = mp.bricks();
+    const walletContainerId = isMobileView
+      ? "walletBrick_container_mobile"
+      : "walletBrick_container_desktop";
 
     const renderWalletBrick = async () => {
       if (window.walletBrickController) {
@@ -285,6 +301,7 @@ const hasCompleteShippingProfile = isShippingProfileComplete(
         initialization: {
           preferenceId,
           redirectMode: "blank",
+          mercadoPago: mp,
         },
         customization: {
           texts: {
@@ -300,7 +317,7 @@ const hasCompleteShippingProfile = isShippingProfileComplete(
 
       window.walletBrickController = await bricksBuilder.create(
         "wallet",
-        "walletBrick_container",
+        walletContainerId,
         settings
       );
       walletBrickPreferenceRef.current = preferenceId;
@@ -445,20 +462,278 @@ const hasCompleteShippingProfile = isShippingProfileComplete(
 
       {/* Título */}
       <div className="bg-white py-6 px-4 md:px-8 text-center border-b">
-        <h1 className="text-3xl font-bold mb-2">Tu Carrito</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2">Tu Carrito</h1>
         <p className="text-gray-600">
           Revisá tus productos antes de enviar el pedido
         </p>
       </div>
 
-      <div className="bg-gray-50 py-6 px-4 md:px-8">
+      {/* MOBILE */}
+      <div className="md:hidden px-4 pb-6 space-y-4">
+        <CartMobile
+          cartItems={cartItems}
+          handleUpdateQuantity={handleQuantityChange}
+          handleRemoveItem={handleRemoveItem}
+          formatPrice={(price) =>
+            `$${Number(price).toLocaleString("es-AR", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}`
+          }
+        />
+
+        {showPayment && (
+          <div className="bg-white rounded-xl border p-4 sm:p-6 shadow-sm space-y-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-xl font-bold">Medios de pago</h2>
+                <button
+                  onClick={() => setShowPayment(false)}
+                  className="text-sm text-gray-500 hover:text-red-600"
+                >
+                  Cancelar y volver
+                </button>
+              </div>
+              <p className="text-sm text-gray-600">
+                Elegí si querés pagar con tarjeta u otros medios, o abrir Mercado Pago en una pestaña nueva.
+              </p>
+              {paymentError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                  {paymentError}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+              <h3 className="font-semibold text-gray-900">Pagar con dinero en cuenta</h3>
+              <p className="text-sm text-gray-600 mt-1 mb-4">
+                Se abre Mercado Pago en otra pestaña para que completes el pago con tu cuenta.
+              </p>
+              <div className="w-full max-w-full overflow-hidden">
+                <div id="walletBrick_container_mobile" className="w-full max-w-full" />
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">Finalizar pago</h3>
+              <div className="w-full max-w-full overflow-hidden">
+                <div id="paymentBrick_container_mobile" className="w-full max-w-full" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isMinorista && (
+          <div className="bg-white rounded-xl border p-4 shadow-sm space-y-4">
+            <div className="space-y-2">
+              <h2 className="text-xl font-bold text-gray-900">Método de envío</h2>
+              <p className="text-sm text-gray-600">
+                Elegí una opción para calcular un costo estimativo de envío.
+              </p>
+            </div>
+
+            {!shippingProfileLoading && !hasCompleteShippingProfile && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                <p className="text-sm font-medium text-red-800">
+                  {SHIPPING_PROFILE_REQUIRED_MESSAGE}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => router.push("/dashboard/pefil")}
+                  className="mt-3 inline-flex items-center rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                >
+                  Ir a mi perfil
+                </button>
+              </div>
+            )}
+
+            <div className="grid gap-3">
+              {SHIPPING_METHOD_OPTIONS.map((option) => {
+                const checked = shippingSelection.shippingMethod === option.value;
+
+                return (
+                  <label
+                    key={option.value}
+                    className={`cursor-pointer rounded-xl border p-4 transition ${checked
+                      ? "border-red-600 bg-red-50"
+                      : "border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="shippingMethod"
+                      value={option.value}
+                      checked={checked}
+                      onChange={(e) =>
+                        setShippingSelection((prev) => ({
+                          ...prev,
+                          shippingMethod: e.target.value,
+                        }))
+                      }
+                      className="sr-only"
+                    />
+                    <p className="font-semibold text-gray-900">{option.label}</p>
+                    <p className="mt-1 text-sm text-gray-600">{option.description}</p>
+                  </label>
+                );
+              })}
+            </div>
+
+            {!isPickup && (
+              <>
+                <div>
+                  <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-700">
+                    Zona
+                  </h3>
+                  <div className="grid gap-3">
+                    {SHIPPING_ZONE_OPTIONS.map((option) => {
+                      const checked = shippingSelection.shippingZone === option.value;
+
+                      return (
+                        <label
+                          key={option.value}
+                          className={`cursor-pointer rounded-xl border p-4 transition ${checked
+                            ? "border-red-600 bg-red-50"
+                            : "border-gray-200 hover:border-gray-300"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="shippingZone"
+                            value={option.value}
+                            checked={checked}
+                            onChange={(e) =>
+                              setShippingSelection((prev) => ({
+                                ...prev,
+                                shippingZone: e.target.value,
+                              }))
+                            }
+                            className="sr-only"
+                          />
+                          <p className="font-semibold text-gray-900">{option.label}</p>
+                          <p className="mt-1 text-sm text-gray-600">{option.description}</p>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-700">
+                    Tamaño estimado de caja
+                  </h3>
+                  <div className="grid gap-3">
+                    {SHIPPING_BOX_OPTIONS.map((option) => {
+                      const checked = shippingSelection.shippingBoxSize === option.value;
+
+                      return (
+                        <label
+                          key={option.value}
+                          className={`cursor-pointer rounded-xl border p-4 transition ${checked
+                            ? "border-red-600 bg-red-50"
+                            : "border-gray-200 hover:border-gray-300"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="shippingBoxSize"
+                            value={option.value}
+                            checked={checked}
+                            onChange={(e) =>
+                              setShippingSelection((prev) => ({
+                                ...prev,
+                                shippingBoxSize: e.target.value,
+                              }))
+                            }
+                            className="sr-only"
+                          />
+                          <p className="font-semibold text-gray-900">{option.label}</p>
+                          <p className="mt-1 text-sm text-gray-600">{option.description}</p>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-gray-900">Costo estimado de envío</p>
+                  <p className="text-xl font-bold text-red-700">
+                    {estimatedShippingCost == null
+                      ? "-"
+                      : formatPrice(estimatedShippingCost)}
+                  </p>
+                </div>
+                <p className="text-sm text-gray-700">{SHIPPING_NOTICE}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="bg-white rounded-xl border p-4 shadow-sm">
+          <h2 className="text-xl font-bold mb-4">Resumen del pedido</h2>
+
+          <div className="space-y-4">
+            <div className="flex justify-between">
+              <span>Subtotal</span>
+              <span>{formatPrice(subtotal)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Envío</span>
+              <span>
+                {isMinorista
+                  ? estimatedShippingCost == null
+                    ? "Seleccionar"
+                    : `${formatPrice(estimatedShippingCost)} estimado`
+                  : "A coordinar"}
+              </span>
+            </div>
+          </div>
+
+          <div className="border-t my-4" />
+
+          <div className="flex justify-between mb-4">
+            <span className="font-bold">
+              {isMinorista ? "Total a pagar ahora" : "Total"}
+            </span>
+            <span className="text-xl font-bold text-red-600">
+              {formatPrice(total)}
+            </span>
+          </div>
+
+          {isMinorista && (
+            <p className="mb-4 text-xs leading-5 text-gray-600">
+              El envío estimado se informa por separado y el valor final será confirmado después de la compra.
+            </p>
+          )}
+
+          {!(isMinorista && showPayment) ? (
+            <button
+              onClick={isMinorista ? handleMinoristaPaymentFlow : handleCreateOrder}
+              disabled={isSubmitting || cartItems.length === 0}
+              className="btn-primary w-full py-3 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? "Procesando..." : isMinorista ? "Pagar Pedido" : "Enviar Pedido"}
+            </button>
+          ) : (
+            <p className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-center text-sm text-blue-700">
+              El pago ya se está completando arriba desde Mercado Pago.
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="hidden md:block bg-gray-50 py-6 px-4 md:px-8">
         <div className="max-w-[1360px] mx-auto flex flex-col lg:flex-row gap-6 items-start">
 
           <div className="flex-1 w-full space-y-6">
             {showPayment && (
-              <div className="bg-white p-6 rounded-lg border shadow-sm border-blue-200 space-y-2">
+              <div className="bg-white p-4 sm:p-6 rounded-lg border shadow-sm border-blue-200 space-y-2">
                 <div className="space-y-3">
-                  <div className="flex justify-between items-center gap-4">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4">
                     <h2 className="text-xl font-bold">Medios de pago</h2>
                     <button
                       onClick={() => setShowPayment(false)}
@@ -488,20 +763,20 @@ const hasCompleteShippingProfile = isShippingProfileComplete(
                     Se abre Mercado Pago en otra pestaña para que completes el pago con tu cuenta, con tus medios de pago preferidos o en cuotas sin tarjeta de Mercado Pago.
                   </p>
 
-                  <div className="max-w-[320px]">
-                    <div id="walletBrick_container"></div>
+                  <div className="max-w-[320px] w-full">
+                    <div id="walletBrick_container_desktop"></div>
                   </div>
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Finalizar pago</h3>
-                  <div id="paymentBrick_container"></div>
+                  <div id="paymentBrick_container_desktop"></div>
                 </div>
               </div>
             )}
 
             <div className={`bg-white rounded-lg border border-[#D9D9D9] overflow-hidden shadow-sm ${showPayment ? 'opacity-40 pointer-events-none' : ''}`}>
 
-              <div className="bg-red-700 text-white grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] px-6 py-3">
+              <div className="hidden md:grid bg-red-700 text-white grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] px-6 py-3">
                 <div className="font-bold">Producto</div>
                 <div className="font-bold">Código</div>
                 <div className="font-bold">Cantidad</div>
@@ -514,23 +789,36 @@ const hasCompleteShippingProfile = isShippingProfileComplete(
                 {cartItems.map((item) => (
                   <div
                     key={item.id}
-                    className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] px-6 py-4 items-center hover:bg-gray-50"
+                    className="grid grid-cols-1 gap-3 px-4 py-4 hover:bg-gray-50 md:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] md:px-6 md:items-center"
                   >
-                    <div>{item.nombre}</div>
-                    <div className="text-gray-500">{item.codigo}</div>
+                    <div>
+                      <span className="md:hidden block text-xs font-semibold uppercase text-gray-500">Producto</span>
+                      <span className="break-words">{item.nombre}</span>
+                    </div>
+                    <div className="text-gray-500">
+                      <span className="md:hidden block text-xs font-semibold uppercase text-gray-500">Codigo</span>
+                      <span className="break-all">{item.codigo}</span>
+                    </div>
 
-                    <input
-                      type="number"
-                      min="1"
-                      value={item.cantidad}
-                      onChange={(e) =>
-                        handleQuantityChange(item.id, Number(e.target.value))
-                      }
-                      className="w-16 border rounded text-center"
-                    />
+                    <div>
+                      <span className="md:hidden block text-xs font-semibold uppercase text-gray-500">Cantidad</span>
+                      <input
+                        type="number"
+                        min="1"
+                        value={item.cantidad}
+                        onChange={(e) =>
+                          handleQuantityChange(item.id, Number(e.target.value))
+                        }
+                        className="w-20 border rounded text-center"
+                      />
+                    </div>
 
-                    <div>{formatPrice(item.precioUnitario)}</div>
+                    <div>
+                      <span className="md:hidden block text-xs font-semibold uppercase text-gray-500">Precio unitario</span>
+                      {formatPrice(item.precioUnitario)}
+                    </div>
                     <div className="font-bold">
+                      <span className="md:hidden block text-xs font-semibold uppercase text-gray-500">Total</span>
                       {formatPrice(item.precioUnitario * item.cantidad)}
                     </div>
 
@@ -546,7 +834,7 @@ const hasCompleteShippingProfile = isShippingProfileComplete(
             </div>
 
             {isMinorista && (
-              <div className={`bg-white rounded-xl border p-6 shadow-sm space-y-5 ${showPayment ? "opacity-40 pointer-events-none" : ""}`}>
+              <div className={`bg-white rounded-xl border p-4 sm:p-6 shadow-sm space-y-5 ${showPayment ? "opacity-40 pointer-events-none" : ""}`}>
                 <div className="space-y-2">
                   <h2 className="text-xl font-bold text-gray-900">Metodo de envio</h2>
                   <p className="text-sm text-gray-600">
@@ -690,7 +978,7 @@ const hasCompleteShippingProfile = isShippingProfileComplete(
                 )}
 
                 <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
                       <p className="text-sm font-semibold text-gray-900">
                         Costo estimado de envio
@@ -701,7 +989,7 @@ const hasCompleteShippingProfile = isShippingProfileComplete(
                           : "Definido por la zona y la caja elegidas."}
                       </p>
                     </div>
-                    <p className="text-2xl font-bold text-red-700">
+                    <p className="text-xl sm:text-2xl font-bold text-red-700">
                       {estimatedShippingCost == null
                         ? "-"
                         : formatPrice(estimatedShippingCost)}
@@ -722,7 +1010,7 @@ const hasCompleteShippingProfile = isShippingProfileComplete(
               </button>
             </div>
           </div>
-          <div className="w-full lg:w-[280px] bg-white border rounded-xl p-6 shadow-sm lg:sticky lg:top-6">
+          <div className="w-full lg:w-[280px] bg-white border rounded-xl p-4 sm:p-6 shadow-sm lg:sticky lg:top-6">
             <h2 className="text-xl font-bold mb-4">Resumen del pedido</h2>
 
             <div className="space-y-4">

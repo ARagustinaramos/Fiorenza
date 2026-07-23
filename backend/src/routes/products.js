@@ -68,6 +68,8 @@ router.get("/offers", getOfferProducts);
 router.get("/new", getNewProducts);
 router.get("/featured", getFeaturedProducts);
 router.get("/low-stock", auth, requireRole("ADMIN"), getLowStockProducts);
+router.get("/filters/marcas", getMarcasFiltro);
+router.get("/filters/rubros", getRubrosFiltro);
 
 router.get("/", optionalAuth, getProducts);
 router.get("/:id", optionalAuth, getProductById);
@@ -75,9 +77,6 @@ router.get("/:id", optionalAuth, getProductById);
 router.post("/", auth, requireRole("ADMIN"), createProduct);
 router.put("/:id", auth, requireRole("ADMIN"), updateProduct);
 router.delete("/:id", auth, requireRole("ADMIN"), deleteProduct);
-
-router.get("/filters/marcas", getMarcasFiltro);
-router.get("/filters/rubros", getRubrosFiltro);
 router.patch(
   "/:id/flags",
   auth,

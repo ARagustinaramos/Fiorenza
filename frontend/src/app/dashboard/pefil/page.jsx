@@ -258,10 +258,10 @@ export default function Perfil() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <h1 className="text-4xl font-bold mb-8">Mi Perfil</h1>
+    <div className="max-w-4xl mx-auto px-4 sm:px-0">
+      <h1 className="text-3xl sm:text-4xl font-bold mb-6 sm:mb-8">Mi Perfil</h1>
 
-      <div className="bg-white rounded-lg p-8 shadow-sm">
+      <div className="bg-white rounded-lg p-4 sm:p-8 shadow-sm">
         {isMinorista && (
           <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             Estos datos se usan para el checkout minorista y quedan guardados en cada pedido como historial de envio.
@@ -269,7 +269,7 @@ export default function Perfil() {
         )}
 
         {!isMinorista && (
-          <div className="mb-8 flex items-center gap-6">
+          <div className="mb-8 flex flex-col sm:flex-row sm:items-center gap-6">
             <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
               {form.avatarUrl ? (
                 <img
@@ -398,7 +398,7 @@ export default function Perfil() {
             )}
           </div>
 
-          <div className="flex gap-4 pt-4">
+          <div className="flex flex-col sm:flex-row gap-4 pt-4">
             <button
               type="submit"
               className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700"

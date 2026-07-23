@@ -42,7 +42,7 @@ export function Navbar() {
           href="/"
           className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent hover:from-red-700 hover:to-red-900 transition-all"
         >
-          Fiorenza 
+          Fiorenza
           Repuestos
         </Link>
 
@@ -85,12 +85,35 @@ export function Navbar() {
           )}
 
           {!user ? (
-            <button
-              onClick={() => setOpenLogin(true)}
-              className="btn-primary px-5 sm:px-6 py-2.5"
-            >
-              Iniciar sesión
-            </button>
+            <div className="flex items-center gap-3">
+
+              {/* TEXTO / INDICADOR */}
+              <div className="hidden sm:flex flex-col leading-tight">
+                <span className="text-[11px] text-gray-500">
+                  Acceso mayorista
+                </span>
+                <span className="text-xs font-semibold text-red-600">
+                  Ver catálogo y precios
+                </span>
+              </div>
+
+
+              <button
+                onClick={() => {
+                  localStorage.setItem("loginMode", "mayorista"); // 👈 ESTA LINEA
+                  setOpenLogin(true);
+                }}
+                className="relative px-6 py-2.5 rounded-xl font-semibold text-white 
+   bg-gradient-to-r from-red-600 to-red-700 
+   hover:from-red-700 hover:to-red-800 
+   shadow-lg shadow-red-500/30
+   transition-all duration-300 hover:scale-105"
+              >
+                Iniciar sesión
+
+                <span className="absolute -inset-1 rounded-xl bg-red-500 opacity-20 blur-md pointer-events-none"></span>
+              </button>
+            </div>
           ) : (
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-5 sm:pl-5 sm:border-l border-gray-200 w-full sm:w-auto">
               <div className="flex flex-col leading-tight">

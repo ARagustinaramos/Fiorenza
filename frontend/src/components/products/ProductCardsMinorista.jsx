@@ -2,9 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
+import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { SearchableSelect } from "../ui/SearchableSelect";
 import { addToCart } from "../../../store/slices/cartSlice";
+import { useAuth } from "../../context/AuthContext";
+import { savePendingCartProduct } from "../../lib/pendingCart";
+import { ProductCardMobile } from "./ProductCardMobile";
 
 const PAGE_SIZE = 20;
 const BRANDS = [
@@ -18,15 +22,19 @@ const BRANDS = [
   { key: "universal", label: "Universal", searchName: "Universal", logo: "/brands/universal.png" },
 ];
 
-export function ProductCardsMinorista({ onSidebarContent }) {
+export function ProductCardsMinorista({ onSidebarContent, initialCode }) {
   const dispatch = useDispatch();
+  const router = useRouter();
+  const { user } = useAuth();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [urlChecked, setUrlChecked] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const [targetInternalCode, setTargetInternalCode] = useState("");
   const [selectedMarcas, setSelectedMarcas] = useState(new Set());
   const [selectedMarcaFiltro, setSelectedMarcaFiltro] = useState("");
   const [selectedRubro, setSelectedRubro] = useState("");
@@ -39,8 +47,38 @@ export function ProductCardsMinorista({ onSidebarContent }) {
   const [activeImageIndex, setActiveImageIndex] = useState({});
   const [cartToast, setCartToast] = useState(null);
   const cartToastTimeoutRef = useRef(null);
+  const initialUrlAppliedRef = useRef(false);
+  const productRefs = useRef({});
 
   useEffect(() => {
+    if (initialUrlAppliedRef.current || typeof window === "undefined") return;
+
+    const paramsUrl = new URLSearchParams(window.location.search);
+
+    const productInternalCode = (
+      initialCode ||
+      paramsUrl.get("interno") ||
+      paramsUrl.get("producto") ||
+      ""
+    ).trim();
+
+    initialUrlAppliedRef.current = true;
+
+    if (!productInternalCode) {
+      setUrlChecked(true);
+      return;
+    }
+
+    setTargetInternalCode(productInternalCode);
+    setSearchTerm("");
+    setDebouncedSearchTerm("");
+    setPage(1);
+    setUrlChecked(true);
+  }, []);
+
+  useEffect(() => {
+    if (!urlChecked) return;
+
     const fetchProducts = async () => {
       try {
         setLoading(true);
@@ -49,17 +87,16 @@ export function ProductCardsMinorista({ onSidebarContent }) {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
         const token = localStorage.getItem("token");
 
-        if (!token) {
-          setError("No hay token de autenticación");
-          return;
-        }
-
         const params = new URLSearchParams({
           page: String(page),
           limit: String(PAGE_SIZE),
           web: "true",
         });
-        if (debouncedSearchTerm) params.append("q", debouncedSearchTerm);
+        if (targetInternalCode) {
+          params.set("interno", targetInternalCode);
+        } else if (debouncedSearchTerm) {
+          params.append("q", debouncedSearchTerm);
+        }
         if (selectedMarcas.size > 0) {
           params.append("familia", Array.from(selectedMarcas).join(","));
         }
@@ -68,10 +105,9 @@ export function ProductCardsMinorista({ onSidebarContent }) {
         if (showOfertas) params.append("oferta", "true");
         if (showNovedades) params.append("novedad", "true");
 
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
         const res = await fetch(`${apiUrl}/products?${params.toString()}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers,
         });
 
         if (!res.ok) {
@@ -91,14 +127,27 @@ export function ProductCardsMinorista({ onSidebarContent }) {
 
     fetchProducts();
   }, [
+    urlChecked,
     page,
     debouncedSearchTerm,
+    targetInternalCode,
     selectedMarcas,
     selectedMarcaFiltro,
     selectedRubro,
     showOfertas,
     showNovedades,
   ]);
+
+  useEffect(() => {
+    if (!targetInternalCode) return;
+
+    const el = document.getElementById("catalogo");
+    if (el) {
+      setTimeout(() => {
+        el.scrollIntoView({ behavior: "smooth" });
+      }, 200);
+    }
+  }, [targetInternalCode]);
 
   useEffect(() => {
     const fetchFiltros = async () => {
@@ -137,18 +186,26 @@ export function ProductCardsMinorista({ onSidebarContent }) {
 
   const applySearch = () => {
     setPage(1);
+    setTargetInternalCode("");
     setDebouncedSearchTerm(searchTerm.trim());
   };
 
   const clearFilters = () => {
     setSearchTerm("");
     setDebouncedSearchTerm("");
+    setTargetInternalCode("");
     setSelectedMarcas(new Set());
     setSelectedMarcaFiltro("");
     setSelectedRubro("");
     setShowOfertas(false);
     setShowNovedades(false);
     setPage(1);
+
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("interno");
+      window.history.replaceState(null, "", url.pathname + url.hash);
+    }
   };
 
   const handleSearch = () => {
@@ -158,6 +215,22 @@ export function ProductCardsMinorista({ onSidebarContent }) {
   };
 
   const handleAddToCart = (product) => {
+    if (!user) {
+      localStorage.setItem("loginMode", "minorista");
+      console.log("Guardando loginMode:", "minorista");
+
+      localStorage.setItem("loginMode", "minorista");
+
+      console.log(
+        "Valor guardado:",
+        localStorage.getItem("loginMode")
+      );
+
+      router.push("/login");
+
+      return;
+    }
+
     dispatch(addToCart(product));
     setCartToast("Producto agregado al carrito");
     if (cartToastTimeoutRef.current) {
@@ -168,8 +241,17 @@ export function ProductCardsMinorista({ onSidebarContent }) {
     }, 2000);
   };
 
-  const handleFlip = (productId) => {
-    setFlippedId((prev) => (prev === productId ? null : productId));
+  const updateProductUrl = (product) => {
+    if (typeof window === "undefined") return;
+
+    const internalCode = String(product.codigoInterno || product.id || "").trim();
+    if (!internalCode) return;
+
+    window.history.pushState(null, "", `/producto/${internalCode}`);
+  };
+  const handleFlip = (product) => {
+    updateProductUrl(product);
+    setFlippedId((prev) => (prev === product.id ? null : product.id));
   };
 
   const getActiveIndex = (productId) => activeImageIndex[productId] || 0;
@@ -202,6 +284,7 @@ export function ProductCardsMinorista({ onSidebarContent }) {
         <div className="flex flex-wrap gap-2">
           {BRANDS.map((brand) => {
             const active = selectedMarcas.has(brand.searchName);
+
             return (
               <button
                 key={brand.key}
@@ -383,6 +466,7 @@ export function ProductCardsMinorista({ onSidebarContent }) {
                 onClick={() => {
                   setSearchTerm("");
                   setDebouncedSearchTerm("");
+                  setTargetInternalCode("");
                   setPage(1);
                 }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
@@ -401,13 +485,13 @@ export function ProductCardsMinorista({ onSidebarContent }) {
             selectedMarcaFiltro ||
             selectedRubro ||
             searchTerm) && (
-            <button
-              onClick={clearFilters}
-              className="px-5 py-3 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 transition"
-            >
-              Limpiar
-            </button>
-          )}
+              <button
+                onClick={clearFilters}
+                className="px-5 py-3 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 transition"
+              >
+                Limpiar
+              </button>
+            )}
         </div>
         {isRefreshing && (
           <p className="text-xs text-gray-500">Actualizando resultados...</p>
@@ -432,11 +516,13 @@ export function ProductCardsMinorista({ onSidebarContent }) {
       )}
 
       {!loading && !error && products.length > 0 && (
-        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
           {products.map((product) => {
             const isFlipped = flippedId === product.id;
             const images = Array.isArray(product.images) ? product.images : [];
             const activeIndex = getActiveIndex(product.id);
+            const isHighlighted = targetInternalCode &&
+              product.codigoInterno === targetInternalCode;
             const activeImage =
               images[activeIndex]?.url || images[activeIndex] || null;
             const productMarca =
@@ -449,103 +535,157 @@ export function ProductCardsMinorista({ onSidebarContent }) {
                 : product.familia?.nombre;
 
             return (
-            <div key={product.id} className="group [perspective:1000px]">
-              <div
-                className="relative h-[30rem] w-full rounded-2xl shadow-md transition-transform duration-500 [transform-style:preserve-3d] cursor-pointer"
-                style={{ transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)" }}
-                onClick={() => handleFlip(product.id)}
-              >
-                <div className="absolute inset-0 rounded-2xl p-[1px] bg-gradient-to-br from-red-200 via-red-100 to-white shadow-[0_10px_30px_-18px_rgba(220,38,38,0.6)] group-hover:shadow-[0_16px_40px_-18px_rgba(220,38,38,0.75)] transition-shadow [backface-visibility:hidden]">
-                  <div className="rounded-2xl border border-red-100 bg-white p-5 h-full">
-                  <div className="h-full flex flex-col justify-between">
-                    <div className="space-y-3">
-                      <div className="relative h-48 w-full rounded-lg bg-gray-100 overflow-hidden flex items-center justify-center">
-                        {activeImage ? (
-                          <img
-                            src={activeImage}
-                            alt={product.descripcion || "Producto"}
-                            className="h-full w-full object-contain"
-                          />
-                        ) : (
-                          <span className="text-xs text-gray-400">Sin imagen</span>
-                        )}
-                      </div>
-                      {images.length > 1 && (
-                        <div className="flex items-center justify-center gap-2">
-                          {images.map((_, idx) => (
-                            <span
-                              key={idx}
-                              className={`h-2 w-2 rounded-full transition ${
-                                idx === activeIndex ? "bg-red-500" : "bg-gray-300"
-                              }`}
-                              aria-label={`Imagen ${idx + 1}`}
-                            />
-                          ))}
-                        </div>
-                      )}
-                      <h3 className="text-sm font-semibold leading-5 text-gray-900 line-clamp-3 min-h-[3.75rem]">
-                        {product.descripcion || "Sin descripcion"}
-                      </h3>
-                      <p className="text-xs text-gray-500">
-                        <span className="font-semibold text-gray-700">Marca:</span>{" "}
-                        {productMarca || "Sin marca"}
-                      </p>
-                    </div>
-                    <div className="pt-3">
-                      <p className="text-sm text-gray-500">Precio final</p>
-                      <p className="text-2xl font-bold text-green-700">
-                        {formatCurrency(product.precioConIva)}
-                      </p>
-                      <p className="text-xs text-gray-400">IVA incluido</p>
-                      <p className="text-xs text-gray-400 mt-2">Click para ver más</p>
-                    </div>
-                  </div>
-                  </div>
+              <div key={product.id}>
+                {/* ================= MOBILE ================= */}
+                <div className="block sm:hidden">
+                  <ProductCardMobile
+                    product={product}
+                    images={images}
+                    activeImage={activeImage}
+                    activeIndex={activeIndex}
+                    formatCurrency={formatCurrency}
+                    handleAddToCart={handleAddToCart}
+                  />
                 </div>
 
-                <div className="absolute inset-0 rounded-2xl p-[1px] bg-gradient-to-br from-red-200 via-red-100 to-white shadow-[0_10px_30px_-18px_rgba(220,38,38,0.6)] group-hover:shadow-[0_16px_40px_-18px_rgba(220,38,38,0.75)] transition-shadow [backface-visibility:hidden] [transform:rotateY(180deg)]">
-                  <div className="rounded-2xl border border-red-100 bg-white p-5 h-full">
-                  <div className="h-full flex flex-col justify-center">
-                    <div className="space-y-3 text-sm text-gray-600 pr-1">
-                      <p>
-                        <span className="font-semibold text-gray-800">Interno:</span>{" "}
-                        {product.codigoInterno || "-"}
-                      </p>
-                      <p>
-                        <span className="font-semibold text-gray-800">Original:</span>{" "}
-                        {product.codigoOriginal || "-"}
-                      </p>
-                      <p>
-                        <span className="font-semibold text-gray-800">Descripcion adicional:</span>{" "}
-                        {product.descripcionAdicional || "-"}
-                      </p>
-                      <p>
-                        <span className="font-semibold text-gray-800">Familia:</span>{" "}
-                        {productFamilia || "-"}
-                      </p>
-                      <p className="text-xs leading-4 break-words">
-                        <span className="font-semibold text-gray-800">Rubro:</span>{" "}
-                        {product.rubro || "-"}
-                      </p>
-                    </div>
+                {/* ================= DESKTOP ================= */}
+                <div className="hidden sm:block">
+                  <div
+                    className={`relative h-[30rem] w-full rounded-2xl transition-all duration-300
+        ${isHighlighted
+                        ? "ring-2 ring-red-500 shadow-[0_0_25px_rgba(220,38,38,0.6)] scale-[1.02]"
+                        : "shadow-md"
+                      }`}
+                  >
+                    <div
+                      className="relative h-[30rem] w-full rounded-2xl shadow-md transition-transform duration-500 [transform-style:preserve-3d] cursor-pointer"
+                      style={{
+                        transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
+                      }}
+                      onClick={() => handleFlip(product)}
+                    >
+                      {isHighlighted && (
+                        <div className="absolute top-3 left-3 bg-red-600 text-white text-[10px] px-2 py-1 rounded-full shadow">
+                          Destacado
+                        </div>
+                      )}
 
-                    <div className="pt-6">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddToCart(product);
-                        }}
-                        className="w-full rounded-md bg-green-600 text-white py-2 text-sm hover:bg-green-700 transition-colors"
-                      >
-                        Agregar al carrito
-                      </button>
+                      {/* ================= FRONT ================= */}
+                      <div className="absolute inset-0 rounded-2xl p-[1px] bg-gradient-to-br from-red-200 via-red-100 to-white shadow-[0_10px_30px_-18px_rgba(220,38,38,0.6)] transition-shadow [backface-visibility:hidden]">
+                        <div className="rounded-2xl border border-red-100 bg-white p-5 h-full">
+                          <div className="h-full flex flex-col justify-between">
+                            <div className="space-y-3">
+                              <div className="relative h-48 w-full rounded-lg bg-gray-100 overflow-hidden flex items-center justify-center">
+                                {activeImage ? (
+                                  <img
+                                    src={activeImage}
+                                    alt={product.descripcion || "Producto"}
+                                    className="h-full w-full object-contain"
+                                  />
+                                ) : (
+                                  <span className="text-xs text-gray-400">
+                                    Sin imagen
+                                  </span>
+                                )}
+                              </div>
+
+                              {images.length > 1 && (
+                                <div className="flex items-center justify-center gap-2">
+                                  {images.map((_, idx) => (
+                                    <span
+                                      key={idx}
+                                      className={`h-2 w-2 rounded-full ${idx === activeIndex
+                                          ? "bg-red-500"
+                                          : "bg-gray-300"
+                                        }`}
+                                    />
+                                  ))}
+                                </div>
+                              )}
+
+                              <h3 className="text-sm font-semibold leading-5 text-gray-900 line-clamp-3 min-h-[3.75rem]">
+                                {product.descripcion || "Sin descripcion"}
+                              </h3>
+
+                              <p className="text-xs text-gray-500">
+                                <span className="font-semibold text-gray-700">
+                                  Marca:
+                                </span>{" "}
+                                {productMarca || "Sin marca"}
+                              </p>
+                            </div>
+
+                            <div className="pt-3">
+                              <p className="text-sm text-gray-500">Precio final</p>
+                              <p className="text-2xl font-bold text-green-700">
+                                {formatCurrency(product.precioConIva)}
+                              </p>
+                              <p className="text-xs text-gray-400">IVA incluido</p>
+                              <p className="text-xs text-gray-400 mt-2">
+                                Click para ver más
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* ================= BACK ================= */}
+                      <div className="absolute inset-0 rounded-2xl p-[1px] bg-gradient-to-br from-red-200 via-red-100 to-white shadow-[0_10px_30px_-18px_rgba(220,38,38,0.6)] transition-shadow [backface-visibility:hidden] [transform:rotateY(180deg)]">
+                        <div className="rounded-2xl border border-red-100 bg-white p-5 h-full">
+                          <div className="h-full flex flex-col justify-center">
+                            <div className="space-y-3 text-sm text-gray-600 pr-1">
+                              <p>
+                                <span className="font-semibold text-gray-800">
+                                  Interno:
+                                </span>{" "}
+                                {product.codigoInterno || "-"}
+                              </p>
+                              <p>
+                                <span className="font-semibold text-gray-800">
+                                  Original:
+                                </span>{" "}
+                                {product.codigoOriginal || "-"}
+                              </p>
+                              <p>
+                                <span className="font-semibold text-gray-800">
+                                  Descripcion adicional:
+                                </span>{" "}
+                                {product.descripcionAdicional || "-"}
+                              </p>
+                              <p>
+                                <span className="font-semibold text-gray-800">
+                                  Familia:
+                                </span>{" "}
+                                {productFamilia || "-"}
+                              </p>
+                              <p className="text-xs break-words">
+                                <span className="font-semibold text-gray-800">
+                                  Rubro:
+                                </span>{" "}
+                                {product.rubro || "-"}
+                              </p>
+                            </div>
+
+                            <div className="pt-6">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAddToCart(product);
+                                }}
+                                className="w-full rounded-md bg-green-600 text-white py-2 text-sm hover:bg-green-700 transition-colors"
+                              >
+                                Agregar al carrito
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )})}
+            );
+          })}
         </div>
       )}
 

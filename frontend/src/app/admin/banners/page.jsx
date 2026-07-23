@@ -7,30 +7,27 @@ import { motion } from "framer-motion";
 export default function AdminBannersPage() {
   const [loadingBanner, setLoadingBanner] = useState(false);
   const [loadingHero, setLoadingHero] = useState(false);
-
+ 
   const [previewBanner, setPreviewBanner] = useState(null);
-  const [previewHero, setPreviewHero] = useState(null);
+  const [heroCarouselImages, setHeroCarouselImages] = useState([]);
   const [carouselBanners, setCarouselBanners] = useState([]);
 
   const apiUrl =
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
   useEffect(() => {
-    const fetchHero = async () => {
+    const fetchHeroCarouselImages = async () => {
       try {
-        const res = await fetch(`${apiUrl}/banners`, { cache: "no-store" });
+        const res = await fetch(`${apiUrl}/banners?title=hero`, { cache: "no-store" });
         if (!res.ok) return;
         const data = await res.json();
-        const hero = data.find((b) => b.title === "hero");
-        if (hero?.imageUrl) {
-          setPreviewHero(hero.imageUrl);
-        }
+        setHeroCarouselImages(data.sort((a, b) => a.order - b.order));
       } catch (error) {
-        console.error("Error cargando hero:", error);
+        console.error("Error cargando imágenes del carrusel del Hero:", error);
       }
     };
 
-    fetchHero();
+    fetchHeroCarouselImages();
   }, [apiUrl]);
 
   useEffect(() => {
@@ -50,12 +47,18 @@ export default function AdminBannersPage() {
   }, [apiUrl]);
 
   const uploadHero = async (file) => {
+    if (heroCarouselImages.length >= 3) {
+      alert("Ya puedes subir hasta 3 imágenes para el carrusel del Hero.");
+      return;
+    }
+
     setLoadingHero(true);
 
     try {
       const data = new FormData();
       data.append("image", file);
-      data.append("title", "hero"); 
+      data.append("title", "hero");
+      data.append("order", heroCarouselImages.length);
 
       const res = await fetch(`${apiUrl}/banners`, {
         method: "POST",
@@ -66,13 +69,24 @@ export default function AdminBannersPage() {
 
       const result = await res.json();
 
-      setPreviewHero(result.imageUrl);
-      alert("Hero actualizado ✅");
+      setHeroCarouselImages((prev) => [...prev, result].sort((a, b) => a.order - b.order));
+      alert("Imagen del carrusel del Hero actualizada ✅");
     } catch (error) {
       alert("Error al subir la imagen");
       console.error(error);
     } finally {
       setLoadingHero(false);
+    }
+  };
+
+  const deleteHeroCarouselImage = async (id) => {
+    try {
+      const res = await fetch(`${apiUrl}/banners/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Error al borrar imagen del carrusel del Hero");
+      setHeroCarouselImages((prev) => prev.filter((b) => b.id !== id));
+    } catch (error) {
+      alert("No se pudo borrar la imagen del carrusel del Hero");
+      console.error(error);
     }
   };
 
@@ -130,14 +144,14 @@ export default function AdminBannersPage() {
       >
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
           <ImageIcon className="w-5 h-5" />
-          Imagen principal (Hero Home)
+          Imágenes del Carrusel Principal (Hero Home)
         </h2>
 
-        {!previewHero ? (
+        {heroCarouselImages.length < 3 && (
           <label className="flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-8 cursor-pointer hover:bg-gray-50 transition">
             <Upload className="w-10 h-10 text-gray-400" />
             <span className="text-sm text-gray-500 mt-2">
-              Subir nueva imagen del hero
+              Subir nueva imagen para el carrusel del hero
             </span>
 
             <input
@@ -151,23 +165,39 @@ export default function AdminBannersPage() {
               }}
             />
           </label>
-        ) : (
-          <div className="relative">
-            <img
-              src={previewHero}
-              className="w-full h-56 object-contain rounded-xl border bg-white shadow-none"
-            />
-            <button
-              onClick={() => setPreviewHero(null)}
-              className="absolute top-2 right-2 bg-white/90 text-gray-700 border border-gray-200 shadow-sm rounded-full w-8 h-8 hover:bg-white"
-            >
-              ✕
-            </button>
-          </div>
         )}
 
         {loadingHero && (
-          <p className="text-sm text-gray-500 mt-2">Subiendo hero...</p>
+          <p className="text-sm text-gray-500 mt-2">Subiendo imagen del carrusel del Hero...</p>
+        )}
+
+        {heroCarouselImages.length > 0 && (
+          <div className="mt-6">
+            <p className="text-sm font-semibold text-gray-700 mb-3">
+              Imágenes actuales del carrusel del Hero
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {heroCarouselImages.map((banner) => (
+                <div
+                  key={banner.id}
+                  className="relative border rounded-lg overflow-hidden bg-white"
+                >
+                  <img
+                    src={banner.imageUrl}
+                    alt={banner.title || "Hero Carousel Image"}
+                    className="w-full h-24 object-cover"
+                  />
+                  <button
+                    onClick={() => deleteHeroCarouselImage(banner.id)}
+                    className="absolute top-1 right-1 bg-white/90 text-gray-700 border border-gray-200 rounded-full w-6 h-6 text-xs hover:bg-white"
+                    title="Eliminar imagen del carrusel del Hero"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </motion.div>
 

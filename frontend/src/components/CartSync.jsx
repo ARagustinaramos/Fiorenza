@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useAuth } from "../context/AuthContext";
 import { setCartFromServer } from "../../store/slices/cartSlice";
+import { consumePendingCartSyncedFlag } from "../lib/pendingCart";
 
 export function CartSync() {
   const dispatch = useDispatch();
@@ -46,6 +47,7 @@ export function CartSync() {
         if (isCancelled) return;
 
         const items = Array.isArray(data?.items) ? data.items : [];
+        if (consumePendingCartSyncedFlag()) return;
         skipNextSyncRef.current = true;
         dispatch(setCartFromServer(items));
       } catch (error) {

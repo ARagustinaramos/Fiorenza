@@ -5,7 +5,7 @@ import "slick-carousel/slick/slick-theme.css";
 import WhatsappFloating from "../components/WhatsappFloating";
 import ScrollToTop from "../components/ScrollToTop";
 
-import { Montserrat } from "next/font/google"; 
+import { Montserrat } from "next/font/google";
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -21,6 +21,11 @@ export const metadata = {
     shortcut: "/letraF.jpg",
     apple: "/letraF.jpg",
   },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }) {

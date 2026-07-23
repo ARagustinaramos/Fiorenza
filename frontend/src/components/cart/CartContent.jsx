@@ -6,6 +6,7 @@ import { useAuth } from "../../context/AuthContext";
 import { removeFromCart, updateQuantity, clearCart } from "../../../store/slices/cartSlice";
 import { Trash2, Plus, Minus, ArrowLeft } from "lucide-react";
 import { useState } from "react";
+import { CartMobile } from "./CartMobile";
 
 export function CartContent() {
   const router = useRouter();
@@ -89,13 +90,33 @@ export function CartContent() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Tu Carrito</h1>
-        <p className="text-gray-600 text-sm">{cartItems.length} producto(s)</p>
-      </div>
+  <div className="max-w-6xl mx-auto px-4">
 
+    {/* HEADER */}
+    <div className="mb-6">
+      <h1 className="text-3xl font-bold text-gray-900 mb-2">Tu Carrito</h1>
+      <p className="text-gray-600 text-sm">{cartItems.length} producto(s)</p>
+    </div>
+
+    {/* ================= MOBILE ================= */}
+    <div className="md:hidden">
+      <CartMobile
+        cartItems={cartItems}
+        handleUpdateQuantity={handleUpdateQuantity}
+        handleRemoveItem={handleRemoveItem}
+        formatPrice={(price) =>
+          `$${Number(price).toLocaleString("es-AR", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}`
+        }
+      />
+    </div>
+
+    {/* ================= DESKTOP ================= */}
+    <div className="hidden md:block">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
         {/* TABLA DE PRODUCTOS */}
         <div className="lg:col-span-2">
           <div className="bg-white rounded-lg border overflow-hidden">
@@ -135,6 +156,7 @@ export function CartContent() {
                     >
                       <Minus className="w-4 h-4 text-gray-600" />
                     </button>
+
                     <input
                       type="number"
                       min="1"
@@ -144,6 +166,7 @@ export function CartContent() {
                       }
                       className="w-12 text-center border border-gray-300 rounded px-2 py-1"
                     />
+
                     <button
                       onClick={() =>
                         handleUpdateQuantity(item.id, item.cantidad + 1)
@@ -168,7 +191,7 @@ export function CartContent() {
           </div>
 
           <button
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/") }
             className="mt-4 flex items-center gap-2 text-red-600 hover:text-red-700 font-medium text-sm"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -219,7 +242,10 @@ export function CartContent() {
             </button>
           </div>
         </div>
+
       </div>
     </div>
-  );
-}
+
+  </div>
+
+)}

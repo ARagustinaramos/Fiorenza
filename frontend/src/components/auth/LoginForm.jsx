@@ -1,18 +1,36 @@
 ﻿"use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useDispatch } from "react-redux";
 import { useAuth } from "../../context/AuthContext";
+import { setCartFromServer } from "../../../store/slices/cartSlice";
+import { consumePendingCartProduct, getPendingCartProduct } from "../../lib/pendingCart";
 
 export function LoginForm({ onSuccess }) {
   const { login, loginWithGoogle } = useAuth();
   const router = useRouter();
+  const dispatch = useDispatch();
   const googleInitRef = useRef(false);
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
   const enableMinorista =
     String(process.env.NEXT_PUBLIC_ENABLE_MINORISTA || "false").toLowerCase() ===
     "true";
   const [accountType, setAccountType] = useState("MAYORISTA");
+
+ useEffect(() => {
+  const savedMode = localStorage.getItem("loginMode");
+
+  if (savedMode === "minorista" && enableMinorista) {
+    setAccountType("MINORISTA");
+  }
+
+  if (savedMode === "mayorista") {
+    setAccountType("MAYORISTA");
+  }
+
+  localStorage.removeItem("loginMode");
+}, [enableMinorista]);
 
   useEffect(() => {
     if (!enableMinorista && accountType === "MINORISTA") {
@@ -26,7 +44,8 @@ export function LoginForm({ onSuccess }) {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const googleButtonRenderedRef = useRef(false);
-
+  
+  const WHATSAPP_NUMBER = "5491153444546"
   const getGoogleErrorMessage = (errorCode) => {
     switch (errorCode) {
       case "MINORISTA_DISABLED":
@@ -43,6 +62,33 @@ export function LoginForm({ onSuccess }) {
     }
   };
 
+  const redirectAfterLogin = useCallback(async (user) => {
+    const pendingProduct = getPendingCartProduct();
+    const token = localStorage.getItem("token");
+
+    if (pendingProduct && token) {
+      try {
+        const cartData = await consumePendingCartProduct({ token });
+        dispatch(setCartFromServer(cartData?.items || []));
+        router.push("/dashboard/carrito");
+      } catch (error) {
+        console.error("Error agregando producto pendiente al carrito:", error);
+        setError("Iniciaste sesion, pero no pudimos agregar el producto al carrito. Proba nuevamente.");
+      }
+      return;
+    }
+
+    if (user.rol === "mayorista" || user.rol === "MAYORISTA") {
+      router.push("/mayorista");
+    } else if (user.rol === "minorista" || user.rol === "MINORISTA") {
+      router.push("/");
+    } else if (user.rol === "admin" || user.rol === "ADMIN") {
+      router.push("/admin/dashboard");
+    } else {
+      router.push("/");
+    }
+  }, [dispatch, router]);
+
   useEffect(() => {
     const savedEmail = localStorage.getItem("rememberedEmail");
     if (savedEmail) {
@@ -55,7 +101,6 @@ export function LoginForm({ onSuccess }) {
     if (
       !enableMinorista ||
       !googleClientId ||
-      googleInitRef.current ||
       accountType !== "MINORISTA"
     )
       return;
@@ -71,15 +116,7 @@ export function LoginForm({ onSuccess }) {
             try {
               const user = await loginWithGoogle(response.credential);
               onSuccess?.();
-              if (user.rol === "mayorista" || user.rol === "MAYORISTA") {
-                router.push("/mayorista");
-              } else if (user.rol === "minorista" || user.rol === "MINORISTA") {
-                router.push("/minorista");
-              } else if (user.rol === "admin" || user.rol === "ADMIN") {
-                router.push("/admin/dashboard");
-              } else {
-                router.push("/");
-              }
+              await redirectAfterLogin(user);
             } catch (err) {
               setError(getGoogleErrorMessage(err?.message));
               console.error("Google login error:", err);
@@ -93,7 +130,7 @@ export function LoginForm({ onSuccess }) {
       googleInitRef.current = true;
 
       const target = document.getElementById("google-signin-btn");
-      if (target && !googleButtonRenderedRef.current) {
+      if (target) {
         target.innerHTML = "";
         window.google.accounts.id.renderButton(target, {
           theme: "outline",
@@ -119,7 +156,7 @@ export function LoginForm({ onSuccess }) {
     return () => {
       script.onload = null;
     };
-  }, [accountType, googleClientId, loginWithGoogle, onSuccess, router]);
+  }, [accountType, googleClientId, loginWithGoogle, onSuccess, redirectAfterLogin]);
 
   useEffect(() => {
     if (accountType !== "MINORISTA") {
@@ -145,16 +182,7 @@ export function LoginForm({ onSuccess }) {
       }
       onSuccess?.();
 
-     
-      if (user.rol === "mayorista" || user.rol === "MAYORISTA") {
-        router.push("/mayorista");
-      } else if (user.rol === "minorista" || user.rol === "MINORISTA") {
-        router.push("/minorista");
-      } else if (user.rol === "admin" || user.rol === "ADMIN") {
-        router.push("/admin/dashboard");
-      } else {
-        router.push("/");
-      }
+      await redirectAfterLogin(user);
     } catch (err) {
       setError("Email o contraseña incorrectos");
       console.log(err);
@@ -164,128 +192,181 @@ export function LoginForm({ onSuccess }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      <h2 className="text-2xl font-bold text-center">
-        Iniciar sesión
-      </h2>
+    <form onSubmit={handleSubmit} className="w-full max-w-sm mx-auto px-4">
+      <div className="bg-white border border-gray-200 rounded-2xl p-3 shadow-sm space-y-3">
 
-      <div className="grid grid-cols-2 rounded-lg border border-gray-200 bg-gray-50 p-1 text-sm">
-        <button
-          type="button"
-          onClick={() => setAccountType("MAYORISTA")}
-          className={`rounded-md px-3 py-2 font-medium transition ${
-            accountType === "MAYORISTA"
-              ? "bg-white text-gray-900 shadow-sm"
-              : "text-gray-500"
-          }`}
-        >
-          Mayorista
-        </button>
-        <button
-          type="button"
-          onClick={() => enableMinorista && setAccountType("MINORISTA")}
-          className={`rounded-md px-3 py-2 font-medium transition ${
-            accountType === "MINORISTA"
-              ? "bg-white text-gray-900 shadow-sm"
-              : "text-gray-400"
-          } ${enableMinorista ? "" : "cursor-not-allowed"}`}
-          disabled={!enableMinorista}
-        >
-          Minorista
-        </button>
-      </div>
+        <h2 className="text-xl font-semibold text-center">
+          Iniciar sesión
+        </h2>
 
-      {accountType === "MAYORISTA" ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          Las cuentas mayoristas las crea Fiorenza. Si todavía no tenés acceso,
-          solicitá tu cuenta desde el formulario de contacto.
+        {/* SELECTOR */}
+        <div className="space-y-2">
+
+          {/* MAYORISTA */}
+          <label
+            className={`block border rounded-xl p-3 transition-all duration-200 cursor-pointer
+          ${accountType === "MAYORISTA"
+                ? "border-red-500 bg-red-50 shadow-sm scale-[1.01]"
+                : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+              }`}
+          >
+            <div className="flex items-center gap-3">
+              <input
+                type="radio"
+                name="accountType"
+                value="MAYORISTA"
+                checked={accountType === "MAYORISTA"}
+                onChange={() => setAccountType("MAYORISTA")}
+                className="accent-red-600"
+              />
+              <p className="text-sm font-medium text-gray-900">
+                Acceso Mayorista
+              </p>
+            </div>
+          </label>
+
+          {/* MINORISTA */}
+          <label
+            className={`block border rounded-xl p-3 transition-all duration-200
+          ${enableMinorista ? "cursor-pointer" : "opacity-50 cursor-not-allowed"}
+          ${accountType === "MINORISTA"
+                ? "border-red-500 bg-red-50 shadow-sm scale-[1.01]"
+                : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+              }`}
+          >
+            <div className="flex items-center gap-3">
+              <input
+                type="radio"
+                name="accountType"
+                value="MINORISTA"
+                checked={accountType === "MINORISTA"}
+                onChange={() =>
+                  enableMinorista && setAccountType("MINORISTA")
+                }
+                disabled={!enableMinorista}
+                className="accent-red-600"
+              />
+              <p className="text-sm font-medium text-gray-900">
+                Acceso Minorista
+              </p>
+            </div>
+          </label>
+
+        </div>
+
+        {/* ALERT */}
+        {accountType === "MAYORISTA" ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-800">
+            Las cuentas mayoristas las crea Fiorenza.
+           <button
+  type="button"
+  onClick={() =>
+    window.open(
+      `https://wa.me/${WHATSAPP_NUMBER}?text=Hola!%20Quiero%20solicitar%20acceso%20mayorista`,
+      "_blank"
+    )
+  }
+  className="ml-1 underline"
+>
+  Contacto
+</button>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-800">
+            Podés crear tu cuenta gratis en minutos.
+          </div>
+        )}
+
+        {/* ERROR */}
+        {error && (
+          <p className="text-xs text-red-600 text-center">
+            {error}
+          </p>
+        )}
+
+        {/* INPUTS */}
+        <input
+          type="email"
+          placeholder="Email"
+          className="w-full px-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 transition"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+
+        <input
+          type="password"
+          placeholder="Contraseña"
+          className="w-full px-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 transition"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+
+        <div className="flex items-center justify-between text-xs">
+          <label className="flex items-center gap-2 text-gray-600">
+            <input
+              type="checkbox"
+              checked={rememberEmail}
+              onChange={(e) => setRememberEmail(e.target.checked)}
+              className="accent-red-600"
+            />
+            Recordar
+          </label>
+
           <button
             type="button"
-            onClick={() => router.push("/")}
-            className="ml-2 text-amber-900 underline"
+            onClick={() => router.push("/forgot-password")}
+            className="text-red-600 hover:underline"
           >
-            Ir a contacto
+            Olvidé contraseña
           </button>
         </div>
-      ) : (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          Podés crear tu cuenta minorista gratis en minutos.
-        </div>
-      )}
 
-      {error && (
-        <p className="text-sm text-red-600 text-center">
-          {error}
-        </p>
-      )}
-
-      <input
-        type="email"
-        placeholder="Email"
-        className="w-full px-4 py-3 border rounded-lg"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-      />
-
-      <input
-        type="password"
-        placeholder="Contraseña"
-        className="w-full px-4 py-3 border rounded-lg"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-      />
-      
-      <label className="flex items-center gap-2 text-sm text-gray-600">
-        <input
-          type="checkbox"
-          checked={rememberEmail}
-          onChange={(e) => setRememberEmail(e.target.checked)}
-          className="accent-red-600"
-        />
-        Recordar mi email
-      </label>
-      <div className="text-right">
+        {/* BOTON */}
         <button
-          type="button"
-          onClick={() => router.push("/forgot-password")}
-          className="text-sm text-red-600 hover:underline"
+          type="submit"
+          disabled={loading}
+          className="w-full py-2.5 bg-red-600 text-white rounded-lg font-medium
+        hover:bg-red-700 transition active:scale-95 disabled:opacity-50"
         >
-          ¿Olvidaste tu contraseña?
+          {loading ? "Ingresando..." : "Entrar"}
         </button>
-      </div>
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="btn-primary w-full py-3 disabled:opacity-50"
-      >
-        {loading ? "Ingresando..." : "Entrar"}
-      </button>
-
-      {accountType === "MINORISTA" ? (
-        <>
-          <div className="text-center text-sm text-gray-500">o continuar con</div>
-          {googleClientId ? (
-            <div id="google-signin-btn" className="w-full flex justify-center" />
-          ) : (
-            <div className="text-center text-xs text-gray-400">
-              Google no está configurado en este entorno.
+        {accountType === "MINORISTA" && (
+          <>
+            <div className="flex items-center gap-3 text-xs text-gray-400">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span>o continuar con</span>
+              <div className="flex-1 h-px bg-gray-200" />
             </div>
-          )}
-          <div className="text-center text-sm">
-            ¿No tenés cuenta?{" "}
-            <button
-              type="button"
-              onClick={() => router.push("/registro")}
-              className="text-red-600 hover:underline"
-            >
-              Crear cuenta
-            </button>
-          </div>
-        </>
-      ) : null}
+
+            {googleClientId ? (
+              <div
+                key={accountType}
+                id="google-signin-btn"
+                className="flex justify-center"
+              />
+            ) : (
+              <div className="text-center text-xs text-gray-400">
+                Google no disponible
+              </div>
+            )}
+
+            <div className="text-center text-xs">
+              ¿No tenés cuenta?{" "}
+              <button
+                type="button"
+                onClick={() => router.push("/registro")}
+                className="text-red-600 hover:underline"
+              >
+                Crear cuenta
+              </button>
+            </div>
+          </>
+        )}
+
+      </div>
     </form>
   );
 }

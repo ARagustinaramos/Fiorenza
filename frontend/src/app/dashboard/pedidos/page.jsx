@@ -34,7 +34,7 @@ export default function Pedidos() {
       return "/mayorista";
     }
     if (userRole === "MINORISTA") {
-      return "/minorista";
+      return "/#catalogo";
     }
     return "/";
   };
@@ -307,7 +307,7 @@ export default function Pedidos() {
   }, [selectedOrder?.id, selectedOrder?.status]);
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto px-4 sm:px-0">
       <Modal open={Boolean(paymentResult)} onClose={() => setPaymentResult(null)}>
         <div className="space-y-4">
           <div>
@@ -353,7 +353,7 @@ export default function Pedidos() {
         </div>
       </Modal>
 
-            <h1 className="text-4xl font-bold mb-8">Mis Pedidos</h1>
+            <h1 className="text-3xl sm:text-4xl font-bold mb-6 sm:mb-8">Mis Pedidos</h1>
 
             {paymentMessage && (
               <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
@@ -363,7 +363,7 @@ export default function Pedidos() {
 
             <div className="bg-white rounded-lg border border-[#D9D9D9] overflow-hidden shadow-sm">
               
-              <div className="bg-red-700 text-white grid grid-cols-[150px_120px_150px_1fr_120px_120px] gap-4 px-6 py-4">
+              <div className="hidden lg:grid bg-red-700 text-white grid-cols-[150px_120px_150px_1fr_120px_120px] gap-4 px-6 py-4">
                 <div className="text-sm font-bold">Número</div>
                 <div className="text-sm font-bold">Fecha</div>
                 <div className="text-sm font-bold">Estado</div>
@@ -402,17 +402,20 @@ export default function Pedidos() {
                   {orders.map((order) => (
                     <div
                       key={order.id}
-                      className="grid grid-cols-[150px_120px_150px_1fr_120px_120px] gap-4 px-6 py-4 items-center hover:bg-gray-50 transition-colors"
+                      className="grid grid-cols-1 gap-3 px-4 py-4 hover:bg-gray-50 transition-colors lg:grid-cols-[150px_120px_150px_1fr_120px_120px] lg:gap-4 lg:px-6 lg:items-center"
                     >
                       <div className="text-sm font-medium text-gray-900">
+                        <span className="lg:hidden block text-xs font-semibold uppercase text-gray-500">Numero</span>
                         {formatOrderNumber(order.id)}
                       </div>
 
                       <div className="text-sm text-gray-700">
+                        <span className="lg:hidden block text-xs font-semibold uppercase text-gray-500">Fecha</span>
                         {formatDate(order.createdAt)}
                       </div>
 
                       <div>
+                        <span className="lg:hidden block text-xs font-semibold uppercase text-gray-500 mb-1">Estado</span>
                         <span
                           className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
                             order.status
@@ -423,10 +426,12 @@ export default function Pedidos() {
                       </div>
 
                       <div className="text-sm text-gray-700">
+                        <span className="lg:hidden block text-xs font-semibold uppercase text-gray-500">Items</span>
                         {order.items?.length || 0} productos
                       </div>
 
                       <div className="text-sm font-semibold text-gray-900">
+                        <span className="lg:hidden block text-xs font-semibold uppercase text-gray-500">Total</span>
                         {formatPrice(order.totalAmount)}
                       </div>
 
@@ -469,8 +474,8 @@ export default function Pedidos() {
             )}
 
       {selectedOrder && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white w-full max-w-2xl rounded-lg shadow-lg p-6 relative">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg shadow-lg p-4 sm:p-6 relative">
             <button
               onClick={() => setSelectedOrder(null)}
               className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"
