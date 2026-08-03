@@ -98,7 +98,6 @@ export function CartContent() {
       <p className="text-gray-600 text-sm">{cartItems.length} producto(s)</p>
     </div>
 
-    {/* ================= MOBILE ================= */}
     <div className="md:hidden">
       <CartMobile
         cartItems={cartItems}

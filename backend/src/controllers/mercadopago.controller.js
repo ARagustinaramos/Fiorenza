@@ -318,7 +318,6 @@ export const createMpPreference = async (req, res) => {
       method: "POST",
       body: JSON.stringify(preferencePayload),
     });
-
     console.log("MP preference created:", preference.id);
 
     await prisma.mercadoPagoSession.create({
@@ -336,10 +335,11 @@ export const createMpPreference = async (req, res) => {
       },
     });
 
-    res.json({
-      preferenceId: preference.id,
-      amount: Number(snapshotTotal),
-    });
+   res.json({
+  preferenceId: preference.id,
+  initPoint: preference.init_point,
+  amount: Number(snapshotTotal),
+});
   } catch (error) {
     console.error("MP_PREFERENCE_ERROR:", error);
     res.status(500).json({ error: error.message || "MP_PREFERENCE_ERROR" });

@@ -13,11 +13,20 @@ export function ProductCardMobile({
     >
       {/* Imagen */}
       <div className="relative bg-gray-100">
-        <img
-          src={activeImage}
-          alt={product.descripcion}
-          className="w-full h-28 object-contain p-2"
-        />
+        {activeImage ? (
+          <img
+            src={activeImage}
+            alt={product.descripcion}
+            className="w-full h-28 object-contain p-2"
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
+          />
+        ) : (
+          <div className="flex h-28 items-center justify-center text-xs text-gray-400">
+            Sin imagen
+          </div>
+        )}
 
         {isHighlighted && (
           <span className="absolute top-1 left-1 bg-red-600 text-white text-[9px] px-1.5 py-0.5 rounded-full">

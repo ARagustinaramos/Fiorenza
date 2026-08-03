@@ -58,16 +58,32 @@ const shouldFilterWebOnly = (req) => {
   return req?.user?.rol === "MINORISTA";
 };
 
-const shouldHideOutOfStock = (req) => req?.user?.rol === "MINORISTA";
+const shouldHideOutOfStock = (req) => {
+  const role = req?.user?.rol;
 
-const buildWebStockFilter = (req) =>
-  shouldFilterWebOnly(req) && shouldHideOutOfStock(req)
-    ? Prisma.sql`AND p.web = true AND p.stock > 0`
-    : shouldFilterWebOnly(req)
-      ? Prisma.sql`AND p.web = true`
-      : shouldHideOutOfStock(req)
-        ? Prisma.sql`AND p.stock > 0`
-        : Prisma.sql``;
+  // Catálogo público y minorista trabajan con stock
+  // Mayorista no depende del stock
+  return !role || role === "MINORISTA";
+};
+
+const buildWebStockFilter = (req) => {
+  const webOnly = shouldFilterWebOnly(req);
+  const hideOutOfStock = shouldHideOutOfStock(req);
+
+  if (webOnly && hideOutOfStock) {
+    return Prisma.sql`AND p.web = true AND p.stock > 0`;
+  }
+
+  if (webOnly) {
+    return Prisma.sql`AND p.web = true`;
+  }
+
+  if (hideOutOfStock) {
+    return Prisma.sql`AND p.stock > 0`;
+  }
+
+  return Prisma.sql``;
+};
 
 export const createProduct = async (req, res) => {
   try {
@@ -140,6 +156,9 @@ export const createProduct = async (req, res) => {
 };
 
 export const getProducts = async (req, res) => {
+  console.log("====== GET PRODUCTS ======");
+console.log("ROL:", req.user?.rol);
+console.log("QUERY:", req.query);
   const startedAt = Date.now();
   try {
   const {
@@ -380,6 +399,14 @@ export const getProducts = async (req, res) => {
     }
   } catch (error) {
     console.error(error);
+    console.log(
+  "Productos enviados:",
+  payload.data.map((p) => ({
+    codigo: p.codigoInterno,
+    stock: p.stock,
+    web: p.web,
+  }))
+);
     res.status(500).json({ error: "Error al obtener productos" });
   }
 };
@@ -387,6 +414,7 @@ export const getProducts = async (req, res) => {
 
 export const getProductById = async (req, res) => {
   try {
+    
     const webOnly = shouldFilterWebOnly(req);
 
     const product = await prisma.product.findUnique({

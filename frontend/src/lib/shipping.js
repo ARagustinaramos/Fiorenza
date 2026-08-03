@@ -51,7 +51,7 @@ export const SHIPPING_NOTICE =
   "El costo de envio mostrado es estimativo. El valor final sera confirmado por nuestro equipo luego de la compra segun dimensiones reales, destino final y transporte seleccionado.";
 
 export const SHIPPING_PROFILE_REQUIRED_MESSAGE =
-  "Para finalizar tu compra necesitás completar tus datos de envío.";
+  "Completá tus datos de envío para poder continuar con tu compra.";
 
 export const SHIPPING_PROFILE_REQUIRED_FIELDS = [
   "nombreCompleto",

@@ -36,32 +36,34 @@ export function Navbar() {
 
   return (
     <>
-      <nav className="bg-gradient-to-l from-red-100 via-red-50 to-white min-h-20 px-4 sm:px-6 lg:px-8 py-3 sm:py-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-md border-b border-red-100">
+      <nav className="bg-gradient-to-l from-red-100 via-red-50 to-white border-b border-red-100 px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between shadow-sm">
 
-        <Link
-          href="/"
-          className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent hover:from-red-700 hover:to-red-900 transition-all"
-        >
-          Fiorenza
-          Repuestos
+        {/* LOGO */}
+        <Link href="/" className="leading-tight text-center">
+          <span className="block text-lg sm:text-xl md:text-2xl font-bold bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent">
+            Fiorenza Repuestos
+          </span>
+          <span className="block text-xs sm:text-sm font-semibold text-red-700 -mt-0.5">
+            Grupo Fiorcap
+          </span>
         </Link>
 
-        <div className="w-full sm:w-auto flex flex-wrap items-center justify-between sm:justify-end gap-3 sm:gap-8">
-
+        {/* DERECHA */}
+        <div className="flex items-center gap-2 sm:gap-4">
 
           {(user?.rol === "mayorista" || user?.rol === "MAYORISTA") && (
             <Link
               href="/mayorista"
-              className="text-sm font-semibold px-3 py-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-all"
+              className="text-sm font-medium px-3 py-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-all duration-200"
             >
-              Área mayorista
+              Mayorista
             </Link>
           )}
 
           {(user?.rol === "admin" || user?.rol === "ADMIN") && (
             <Link
               href="/admin/dashboard"
-              className="flex items-center gap-2 text-sm font-semibold px-3 py-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-all"
+              className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-all duration-200"
             >
               <Shield className="w-4 h-4" />
               Admin
@@ -72,12 +74,12 @@ export function Navbar() {
           {user && user.rol !== "admin" && user.rol !== "ADMIN" && (
             <Link
               href="/dashboard/carrito"
-              className="relative p-2 text-gray-700 hover:text-red-600 transition-colors hover:bg-gray-100 rounded-lg"
+              className="relative p-2 text-gray-700 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
             >
-              <ShoppingCart className="w-6 h-6" />
+              <ShoppingCart className="w-5 h-5" />
 
               {mounted && cartCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-gradient-to-br from-red-500 to-red-700 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg">
+                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
                   {cartCount}
                 </span>
               )}
@@ -85,47 +87,35 @@ export function Navbar() {
           )}
 
           {!user ? (
-            <div className="flex items-center gap-3">
-
-              {/* TEXTO / INDICADOR */}
-              <div className="hidden sm:flex flex-col leading-tight">
-                <span className="text-[11px] text-gray-500">
-                  Acceso mayorista
-                </span>
-                <span className="text-xs font-semibold text-red-600">
-                  Ver catálogo y precios
-                </span>
-              </div>
-
-
-              <button
-                onClick={() => {
-                  localStorage.setItem("loginMode", "mayorista"); // 👈 ESTA LINEA
-                  setOpenLogin(true);
-                }}
-                className="relative px-6 py-2.5 rounded-xl font-semibold text-white 
-   bg-gradient-to-r from-red-600 to-red-700 
-   hover:from-red-700 hover:to-red-800 
-   shadow-lg shadow-red-500/30
-   transition-all duration-300 hover:scale-105"
-              >
-                Iniciar sesión
-
-                <span className="absolute -inset-1 rounded-xl bg-red-500 opacity-20 blur-md pointer-events-none"></span>
-              </button>
-            </div>
+            <button
+              onClick={() => {
+                localStorage.setItem("loginMode", "mayorista");
+                setOpenLogin(true);
+              }}
+              className="ml-2 px-5 py-2 rounded-lg text-sm font-semibold text-white 
+        bg-gradient-to-r from-red-600 to-red-700 
+        hover:from-red-700 hover:to-red-800 
+        transition-all duration-200"
+            >
+              Ingresar
+            </button>
           ) : (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-5 sm:pl-5 sm:border-l border-gray-200 w-full sm:w-auto">
-              <div className="flex flex-col leading-tight">
-                <div className="flex items-center gap-2 text-gray-900">
-                  <div className="p-1.5 bg-red-100 rounded-lg">
-                    <User className="w-4 h-4 text-red-600" />
-                  </div>
-                  <span className="text-sm font-semibold break-all">{user.email}</span>
+            <div className="flex items-center gap-3 pl-3 border-l border-red-100">
+
+              {/* USER */}
+              <div className="hidden sm:flex items-center gap-2">
+                <div className="p-2 bg-red-100 rounded-lg">
+                  <User className="w-4 h-4 text-red-600" />
                 </div>
-                <span className="text-xs text-gray-500 mt-1">
-                  {roleLabel[user.rol]}
-                </span>
+
+                <div className="flex flex-col leading-tight">
+                  <span className="text-sm font-medium text-gray-900 max-w-[140px] truncate">
+                    {user.email}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {roleLabel[user.rol]}
+                  </span>
+                </div>
               </div>
 
               <button
@@ -133,12 +123,13 @@ export function Navbar() {
                   logout();
                   router.push("/");
                 }}
-                className="text-sm font-medium text-gray-600 hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-lg transition-all"
+                className="text-sm font-medium text-gray-600 hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-lg transition-all duration-200"
               >
                 Salir
               </button>
             </div>
           )}
+
         </div>
       </nav>
 

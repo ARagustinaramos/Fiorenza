@@ -44,6 +44,7 @@ export function LoginForm({ onSuccess }) {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const googleButtonRenderedRef = useRef(false);
+  const googleLoginInProgress = useRef(false);
   
   const WHATSAPP_NUMBER = "5491153444546"
   const getGoogleErrorMessage = (errorCode) => {
@@ -65,10 +66,12 @@ export function LoginForm({ onSuccess }) {
   const redirectAfterLogin = useCallback(async (user) => {
     const pendingProduct = getPendingCartProduct();
     const token = localStorage.getItem("token");
-
+console.log("pendingProduct", pendingProduct);
+console.log("token", token);
     if (pendingProduct && token) {
       try {
         const cartData = await consumePendingCartProduct({ token });
+        
         dispatch(setCartFromServer(cartData?.items || []));
         router.push("/dashboard/carrito");
       } catch (error) {
@@ -111,18 +114,26 @@ export function LoginForm({ onSuccess }) {
         window.google.accounts.id.initialize({
           client_id: googleClientId,
           callback: async (response) => {
-            setError(null);
-            setLoading(true);
-            try {
-              const user = await loginWithGoogle(response.credential);
-              onSuccess?.();
-              await redirectAfterLogin(user);
-            } catch (err) {
+    if (googleLoginInProgress.current) return;
+
+    googleLoginInProgress.current = true;
+
+    setLoading(true);
+
+    try {
+        const user = await loginWithGoogle(response.credential);
+
+        onSuccess?.();
+
+        await redirectAfterLogin(user);
+
+    } catch (err) {
               setError(getGoogleErrorMessage(err?.message));
               console.error("Google login error:", err);
-            } finally {
-              setLoading(false);
-            }
+             } finally {
+        googleLoginInProgress.current = false;
+        setLoading(false);
+    }
           },
         });
         window.__fiorenzaGoogleInitialized = true;

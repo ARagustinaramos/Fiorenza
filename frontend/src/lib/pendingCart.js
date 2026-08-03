@@ -43,24 +43,37 @@ export const consumePendingCartProduct = async ({ token }) => {
 
   const cartData = cartRes.ok ? await cartRes.json().catch(() => ({})) : {};
   const currentItems = Array.isArray(cartData?.items) ? cartData.items : [];
-  const itemMap = new Map(
-    currentItems.map((item) => [
-      item.id,
-      {
-        productId: item.id,
-        quantity: Number(item.cantidad || 1),
-      },
-    ])
-  );
+ 
+console.log("1 - currentItems", currentItems);
 
-  const pendingItem = toCartPayloadItem(pendingProduct);
-  const existingItem = itemMap.get(pendingItem.productId);
-  itemMap.set(pendingItem.productId, {
-    productId: pendingItem.productId,
-    quantity: existingItem
-      ? existingItem.quantity + pendingItem.quantity
-      : pendingItem.quantity,
-  });
+const itemMap = new Map(
+  currentItems.map((item) => [
+    item.id,
+    {
+      productId: item.id,
+      quantity: Number(item.cantidad || 1),
+    },
+  ])
+);
+
+console.log("2 - itemMap", itemMap);
+
+const pendingItem = toCartPayloadItem(pendingProduct);
+
+console.log("3 - pendingItem", pendingItem);
+
+const existingItem = itemMap.get(pendingItem.productId);
+
+console.log("4 - existingItem", existingItem);
+
+itemMap.set(pendingItem.productId, {
+  productId: pendingItem.productId,
+  quantity: existingItem
+    ? existingItem.quantity + pendingItem.quantity
+    : pendingItem.quantity,
+});
+
+console.log("5 - payload", Array.from(itemMap.values()));
 
   const updateRes = await fetch(buildApiUrl("/cart"), {
     method: "PUT",
@@ -72,7 +85,10 @@ export const consumePendingCartProduct = async ({ token }) => {
       items: Array.from(itemMap.values()),
     }),
   });
+console.log("PUT status", updateRes.status);
 
+const responseBody = await updateRes.clone().text();
+console.log("PUT response", responseBody);
   if (!updateRes.ok) {
     throw new Error("PENDING_CART_SYNC_FAILED");
   }

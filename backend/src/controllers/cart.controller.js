@@ -74,7 +74,11 @@ export const getMyCart = async (req, res) => {
       include: {
         items: {
           include: {
-            product: true,
+            product: {
+              include: {
+                images: true,
+              },
+            },
           },
         },
       },
@@ -144,7 +148,7 @@ export const replaceMyCart = async (req, res) => {
             : {}),
         },
       });
-
+console.log("existingProducts", existingProducts);
       const productsById = new Map(
         existingProducts.map((product) => [product.id, product])
       );
@@ -152,16 +156,24 @@ export const replaceMyCart = async (req, res) => {
       sanitizedItems = sanitizedItems.reduce((acc, item) => {
         const product = productsById.get(item.productId);
 
-        if (!product) {
-          return acc;
-        }
+console.log("Item recibido:", item);
+console.log("Producto encontrado:", product);
 
-        if (
-          role === "MINORISTA" &&
-          (!product.web || Number(product.stock || 0) <= 0)
-        ) {
-          return acc;
-        }
+if (!product) {
+  console.log("❌ Se descarta porque no existe");
+  return acc;
+}
+
+if (
+  role === "MINORISTA" &&
+  (!product.web || Number(product.stock || 0) <= 0)
+) {
+  console.log("❌ Se descarta por web/stock", {
+    web: product.web,
+    stock: product.stock,
+  });
+  return acc;
+}
 
         acc.push({
           productId: item.productId,
@@ -179,7 +191,7 @@ export const replaceMyCart = async (req, res) => {
         return acc;
       }, []);
     }
-
+console.log("sanitizedItems", sanitizedItems);
     await prisma.$transaction(async (tx) => {
       const cart = await tx.cart.upsert({
         where: { userId: req.user.id },
@@ -197,6 +209,7 @@ export const replaceMyCart = async (req, res) => {
             cartId: cart.id,
             productId: item.productId,
             quantity: item.quantity,
+            
           })),
         });
       }
@@ -207,7 +220,11 @@ export const replaceMyCart = async (req, res) => {
       include: {
         items: {
           include: {
-            product: true,
+            product: {
+              include: {
+                images: true,
+              },
+            },
           },
         },
       },

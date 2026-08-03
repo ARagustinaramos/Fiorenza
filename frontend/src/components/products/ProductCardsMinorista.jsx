@@ -115,6 +115,14 @@ export function ProductCardsMinorista({ onSidebarContent, initialCode }) {
         }
 
         const data = await res.json();
+        console.log(
+  "Productos recibidos:",
+  data.data.map((p) => ({
+    codigo: p.codigoInterno,
+    stock: p.stock,
+    web: p.web,
+  }))
+);
         setProducts(data.data || []);
         setTotalPages(data.pagination?.pages || 1);
       } catch (err) {
@@ -216,11 +224,19 @@ export function ProductCardsMinorista({ onSidebarContent, initialCode }) {
 
   const handleAddToCart = (product) => {
     if (!user) {
+      console.log("Producto pendiente:", product);
+      savePendingCartProduct({
+        ...product,
+        cantidad: 1,
+      });
       localStorage.setItem("loginMode", "minorista");
       console.log("Guardando loginMode:", "minorista");
 
       localStorage.setItem("loginMode", "minorista");
-
+console.log(
+  "Guardado:",
+  JSON.parse(localStorage.getItem("pendingCartProduct"))
+)
       console.log(
         "Valor guardado:",
         localStorage.getItem("loginMode")
@@ -629,7 +645,6 @@ export function ProductCardsMinorista({ onSidebarContent, initialCode }) {
                         </div>
                       </div>
 
-                      {/* ================= BACK ================= */}
                       <div className="absolute inset-0 rounded-2xl p-[1px] bg-gradient-to-br from-red-200 via-red-100 to-white shadow-[0_10px_30px_-18px_rgba(220,38,38,0.6)] transition-shadow [backface-visibility:hidden] [transform:rotateY(180deg)]">
                         <div className="rounded-2xl border border-red-100 bg-white p-5 h-full">
                           <div className="h-full flex flex-col justify-center">
