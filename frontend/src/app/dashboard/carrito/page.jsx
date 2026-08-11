@@ -525,7 +525,7 @@ export default function Carrito() {
       )}
 
       {/* Título */}
-      <div className="bg-white py-6 px-4 md:px-8 text-center border-b">
+      <div className="py-6 px-4 md:px-8 text-center">
         <h1 className="text-2xl sm:text-3xl font-bold mb-2">Tu Carrito</h1>
         <p className="text-gray-600">
           Revisá tus productos antes de enviar el pedido
@@ -859,8 +859,9 @@ export default function Carrito() {
 
             <div className={`bg-white rounded-lg border border-[#D9D9D9] overflow-hidden shadow-sm ${showPayment ? 'opacity-40 pointer-events-none' : ''}`}>
 
-              <div className="hidden md:grid bg-red-700 text-white grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] px-6 py-3">
+              <div className="hidden md:grid bg-red-700 text-white grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr] px-6 py-3">
                 <div className="font-bold">Producto</div>
+                <div className="font-bold">Marca</div>
                 <div className="font-bold">Código</div>
                 <div className="font-bold">Cantidad</div>
                 <div className="font-bold">Precio Unitario</div>
@@ -872,11 +873,22 @@ export default function Carrito() {
                 {cartItems.map((item) => (
                   <div
                     key={item.id}
-                    className="grid grid-cols-1 gap-3 px-4 py-4 hover:bg-gray-50 md:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] md:px-6 md:items-center"
+                    className="grid grid-cols-1 gap-3 px-4 py-4 hover:bg-gray-50 md:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr] md:px-6 md:items-center"
                   >
                     <div>
                       <span className="md:hidden block text-xs font-semibold uppercase text-gray-500">Producto</span>
                       <span className="break-words">{item.nombre}</span>
+                    </div>
+                    <div className="text-gray-500">
+                      <span className="md:hidden block text-xs font-semibold uppercase text-gray-500">Marca</span>
+                      <span className="break-words">
+                        {item.marca ||
+                          (typeof item.producto?.marca === "string"
+                            ? item.producto.marca
+                            : item.producto?.marca?.nombre ||
+                              item.producto?.marca?.label) ||
+                          "Sin marca"}
+                      </span>
                     </div>
                     <div className="text-gray-500">
                       <span className="md:hidden block text-xs font-semibold uppercase text-gray-500">Codigo</span>

@@ -17,16 +17,19 @@ export function LoginForm({ onSuccess }) {
     String(process.env.NEXT_PUBLIC_ENABLE_MINORISTA || "false").toLowerCase() ===
     "true";
   const [accountType, setAccountType] = useState("MAYORISTA");
+  const [hideMayoristaOption, setHideMayoristaOption] = useState(false);
 
  useEffect(() => {
   const savedMode = localStorage.getItem("loginMode");
 
   if (savedMode === "minorista" && enableMinorista) {
     setAccountType("MINORISTA");
+    setHideMayoristaOption(true);
   }
 
   if (savedMode === "mayorista") {
     setAccountType("MAYORISTA");
+    setHideMayoristaOption(false);
   }
 
   localStorage.removeItem("loginMode");
@@ -212,29 +215,28 @@ console.log("token", token);
 
         {/* SELECTOR */}
         <div className="space-y-2">
-
           {/* MAYORISTA */}
-          <label
-            className={`block border rounded-xl p-3 transition-all duration-200 cursor-pointer
+          {!hideMayoristaOption && (
+            <label
+              className={`block border rounded-xl p-3 transition-all duration-200 cursor-pointer
           ${accountType === "MAYORISTA"
-                ? "border-red-500 bg-red-50 shadow-sm scale-[1.01]"
-                : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-              }`}
-          >
-            <div className="flex items-center gap-3">
-              <input
-                type="radio"
-                name="accountType"
-                value="MAYORISTA"
-                checked={accountType === "MAYORISTA"}
-                onChange={() => setAccountType("MAYORISTA")}
-                className="accent-red-600"
-              />
-              <p className="text-sm font-medium text-gray-900">
-                Acceso Mayorista
-              </p>
-            </div>
-          </label>
+                  ? "border-red-500 bg-red-50 shadow-sm scale-[1.01]"
+                  : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                }`}
+            >
+              <div className="flex items-center gap-3">
+                <input
+                  type="radio"
+                  name="accountType"
+                  value="MAYORISTA"
+                  checked={accountType === "MAYORISTA"}
+                  onChange={() => setAccountType("MAYORISTA")}
+                  className="accent-red-600"
+                />
+                <p className="text-sm font-medium text-gray-900">Acceso Mayorista</p>
+              </div>
+            </label>
+          )}
 
           {/* MINORISTA */}
           <label

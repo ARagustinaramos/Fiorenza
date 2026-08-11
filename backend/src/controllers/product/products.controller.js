@@ -317,6 +317,18 @@ console.log("QUERY:", req.query);
 
     const whereSQL = Prisma.sql`WHERE ${joinWith(filters, "AND")}`;
 
+    const orderSql = webOnly
+      ? Prisma.sql`
+        ORDER BY (p."esOferta" = true) DESC,
+          (p.descripcion IS NULL OR p.descripcion = '') ASC,
+          p.descripcion ASC
+      `
+      : Prisma.sql`
+        ORDER BY
+          (p.descripcion IS NULL OR p.descripcion = '') ASC,
+          p.descripcion ASC
+      `;
+
     const products = await prisma.$queryRaw`
       SELECT
         p.*,
@@ -326,9 +338,7 @@ console.log("QUERY:", req.query);
       FROM "Product" p
       ${joinWith(joins, " ")}
       ${whereSQL}
-      ORDER BY
-        (p.descripcion IS NULL OR p.descripcion = '') ASC,
-        p.descripcion ASC
+      ${orderSql}
       LIMIT ${limitNum}
       OFFSET ${offset}
     `;

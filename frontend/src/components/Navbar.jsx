@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { ShoppingCart, User, Shield } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -36,16 +37,20 @@ export function Navbar() {
 
   return (
     <>
-      <nav className="bg-gradient-to-l from-red-100 via-red-50 to-white border-b border-red-100 px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between shadow-sm">
+     <nav className="bg-gradient-to-l from-red-100 via-red-50 to-white px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between shadow-sm">
 
         {/* LOGO */}
         <Link href="/" className="leading-tight text-center">
-          <span className="block text-lg sm:text-xl md:text-2xl font-bold bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent">
-            Fiorenza Repuestos
-          </span>
-          <span className="block text-xs sm:text-sm font-semibold text-red-700 -mt-0.5">
-            Grupo Fiorcap
-          </span>
+          <div className="mx-auto h-10 w-auto sm:h-12">
+            <Image
+              src="/logo.jpg.png"
+              alt="Fiorenza Repuestos"
+              width={140}
+              height={48}
+              className="mx-auto h-10 w-auto sm:h-12 object-contain"
+              sizes="(max-width: 640px) 110px, 140px"
+            />
+          </div>
         </Link>
 
         {/* DERECHA */}
@@ -87,18 +92,33 @@ export function Navbar() {
           )}
 
           {!user ? (
-            <button
-              onClick={() => {
-                localStorage.setItem("loginMode", "mayorista");
-                setOpenLogin(true);
-              }}
-              className="ml-2 px-5 py-2 rounded-lg text-sm font-semibold text-white 
-        bg-gradient-to-r from-red-600 to-red-700 
-        hover:from-red-700 hover:to-red-800 
-        transition-all duration-200"
-            >
-              Ingresar
-            </button>
+            <div className="flex items-center gap-4">
+
+              <div className="hidden md:flex flex-col leading-tight text-right">
+                <span className="text-xs text-gray-500">
+                  Acceso mayorista
+                </span>
+                <span className="text-sm font-semibold text-red-600">
+                  Ver catálogo y precios
+                </span>
+              </div>
+
+              <button
+                onClick={() => {
+                  localStorage.setItem("loginMode", "mayorista");
+                  setOpenLogin(true);
+                }}
+                className="px-4 sm:px-5 py-2 rounded-lg text-sm font-semibold text-white
+      bg-gradient-to-r from-red-600 to-red-700
+      hover:from-red-700 hover:to-red-800
+      shadow-lg shadow-red-300/40
+      transition-all duration-200"
+              >
+                <span className="block sm:hidden">Ingresar</span>
+                <span className="hidden sm:block">Iniciar sesión</span>
+              </button>
+
+            </div>
           ) : (
             <div className="flex items-center gap-3 pl-3 border-l border-red-100">
 

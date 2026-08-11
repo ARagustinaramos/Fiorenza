@@ -115,15 +115,24 @@ export function ProductCardsMinorista({ onSidebarContent, initialCode }) {
         }
 
         const data = await res.json();
+        const sortedProducts = (data.data || []).sort((a, b) => {
+          // Si 'a' está en oferta y 'b' no, 'a' va primero
+          if (a.oferta && !b.oferta) return -1;
+          // Si 'b' está en oferta y 'a' no, 'b' va primero
+          if (!a.oferta && b.oferta) return 1;
+          // Si ambos están en oferta o ninguno lo está, mantener el orden original
+          return 0;
+        });
         console.log(
-  "Productos recibidos:",
-  data.data.map((p) => ({
+  "Productos recibidos (ordenados):",
+  sortedProducts.map((p) => ({
     codigo: p.codigoInterno,
     stock: p.stock,
     web: p.web,
+    oferta: p.oferta,
   }))
 );
-        setProducts(data.data || []);
+        setProducts(sortedProducts);
         setTotalPages(data.pagination?.pages || 1);
       } catch (err) {
         console.error("Error cargando productos:", err);

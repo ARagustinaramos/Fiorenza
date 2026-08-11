@@ -1,16 +1,31 @@
 import { createSlice } from '@reduxjs/toolkit'
 
 
+const getUnitPrice = (product) => {
+  return Number(product?.precioMayoristaSinIva ?? product?.precioConIva ?? 0)
+}
+
+const getProductBrand = (product) => {
+  if (!product) return null
+  if (typeof product.marca === 'string') return product.marca
+  return product.marca?.nombre || product.marca?.label || null
+}
+
+const normalizeCartItem = (item) => {
+  const brand = item.marca || getProductBrand(item.producto)
+  return {
+    ...item,
+    marca: brand || item.marca || null,
+  }
+}
+
 const loadCartFromStorage = () => {
   if (typeof window !== 'undefined') {
     const savedCart = localStorage.getItem('cart')
-    return savedCart ? JSON.parse(savedCart) : []
+    const parsed = savedCart ? JSON.parse(savedCart) : []
+    return Array.isArray(parsed) ? parsed.map(normalizeCartItem) : []
   }
   return []
-}
-
-const getUnitPrice = (product) => {
-  return Number(product?.precioMayoristaSinIva ?? product?.precioConIva ?? 0)
 }
 
 const cartSlice = createSlice({
@@ -26,17 +41,17 @@ const cartSlice = createSlice({
       )
 
       if (existingItem) {
-     
         existingItem.cantidad += 1
+        existingItem.marca = existingItem.marca || getProductBrand(product)
       } else {
-   
         state.items.push({
           id: product.id,
           nombre: product.descripcion,
           codigo: product.codigoInterno || product.codigoOriginal || '-',
           precioUnitario: getUnitPrice(product),
           cantidad: 1,
-          producto: product, 
+          producto: product,
+          marca: getProductBrand(product),
         })
       }
 
@@ -78,8 +93,15 @@ const cartSlice = createSlice({
       }
     },
     setCartFromServer: (state, action) => {
-      state.items = Array.isArray(action.payload) ? action.payload : []
+      const items = Array.isArray(action.payload) ? action.payload : []
+      state.items = items.map(normalizeCartItem)
 
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('cart', JSON.stringify(state.items))
+      }
+    },
+    normalizeCart: (state) => {
+      state.items = state.items.map(normalizeCartItem)
       if (typeof window !== 'undefined') {
         localStorage.setItem('cart', JSON.stringify(state.items))
       }
@@ -87,5 +109,5 @@ const cartSlice = createSlice({
   },
 })
 
-export const { addToCart, removeFromCart, updateQuantity, clearCart, setCartFromServer } = cartSlice.actions
+export const { addToCart, removeFromCart, updateQuantity, clearCart, setCartFromServer, normalizeCart } = cartSlice.actions
 export default cartSlice.reducer

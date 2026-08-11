@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Upload } from "lucide-react";
 import { buildApiUrl } from "../../../lib/api";
-import { getShippingProfileMissingFields } from "../../../lib/shipping";
+import {
+  getShippingProfileMissingFields,
+  SHIPPING_PROFILE_REQUIRED_MESSAGE,
+} from "../../../lib/shipping";
 
 const initialForm = {
   nombreCompleto: "",
@@ -22,10 +25,25 @@ const initialForm = {
   dni: "",
 };
 
+const MISSING_FIELD_LABELS = {
+  nombreCompleto: "Nombre completo",
+  telefono: "Teléfono",
+  direccion: "Dirección",
+  ciudad: "Ciudad",
+  provincia: "Provincia",
+  codigoPostal: "Código Postal",
+  dni: "DNI",
+};
+
 export default function Perfil() {
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState("");
   const [form, setForm] = useState(initialForm);
+  const [missingFields, setMissingFields] = useState([]);
+  const [showMissingProfileModal, setShowMissingProfileModal] = useState(false);
+  const [profileAlertTitle, setProfileAlertTitle] = useState("");
+  const [profileAlertMessage, setProfileAlertMessage] = useState("");
+  const profileRef = useRef(null);
 
   const isMinorista = role === "MINORISTA";
 
@@ -55,7 +73,7 @@ export default function Perfil() {
         const mayoristaProfile = data.perfil || {};
 
         setRole(nextRole);
-        setForm({
+        const profileData = {
           nombreCompleto:
             mayoristaProfile.nombreCompleto ||
             minoristaProfile.nombreCompleto ||
@@ -74,7 +92,11 @@ export default function Perfil() {
           codigoPostal: minoristaProfile.codigoPostal || "",
           referencia: minoristaProfile.referencia || "",
           dni: minoristaProfile.dni || "",
-        });
+        };
+
+        setForm(profileData);
+        const missing = getShippingProfileMissingFields(profileData);
+        setMissingFields(missing);
       } catch (error) {
         console.error("Error cargando perfil", error);
       } finally {
@@ -84,6 +106,21 @@ export default function Perfil() {
 
     fetchProfile();
   }, []);
+
+  useEffect(() => {
+    if (!isMinorista) {
+      setMissingFields([]);
+      setShowMissingProfileModal(false);
+      return;
+    }
+
+    const missing = getShippingProfileMissingFields(form);
+    setMissingFields(missing);
+
+    if (showMissingProfileModal && missing.length === 0) {
+      setShowMissingProfileModal(false);
+    }
+  }, [form, isMinorista, showMissingProfileModal]);
 
   const handleImageUpload = async (e) => {
     if (isMinorista) return;
@@ -143,26 +180,29 @@ export default function Perfil() {
         return;
       }
 
+      const missingFields = [];
       if (!form.nombreCompleto.trim()) {
-        alert("Por favor completa tu nombre completo");
-        return;
+        missingFields.push("nombreCompleto");
       }
 
-      if (!isMinorista && (!form.cuitCuil || !form.empresa)) {
-        alert(
-          "Por favor completa los campos obligatorios: Nombre completo, CUIT/CUIL y Empresa"
+      if (!isMinorista) {
+        if (!form.cuitCuil) missingFields.push("cuitCuil");
+        if (!form.empresa) missingFields.push("empresa");
+      } else {
+        missingFields.push(...getShippingProfileMissingFields(form));
+      }
+
+      if (missingFields.length > 0) {
+        const uniqueFields = Array.from(new Set(missingFields));
+        setMissingFields(uniqueFields);
+        setProfileAlertTitle("Datos incompletos");
+        setProfileAlertMessage(
+          isMinorista
+            ? SHIPPING_PROFILE_REQUIRED_MESSAGE
+            : "Completa los datos requeridos para guardar tu perfil."
         );
+        setShowMissingProfileModal(true);
         return;
-      }
-
-      if (isMinorista) {
-        const missingFields = getShippingProfileMissingFields(form);
-        if (missingFields.length > 0) {
-          alert(
-            "Para guardar tu perfil minorista necesitás completar nombre completo, telefono, direccion, ciudad, provincia y codigo postal."
-          );
-          return;
-        }
       }
 
       const payload = isMinorista
@@ -262,9 +302,40 @@ export default function Perfil() {
       <h1 className="text-3xl sm:text-4xl font-bold mb-6 sm:mb-8">Mi Perfil</h1>
 
       <div className="bg-white rounded-lg p-4 sm:p-8 shadow-sm">
+        {showMissingProfileModal && (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 px-4 py-6">
+            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+              <div className="space-y-4">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">{profileAlertTitle}</h2>
+                  <p className="mt-2 text-sm text-gray-600">
+                    {profileAlertMessage}
+                  </p>
+                </div>
+                {missingFields.length > 0 && (
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+                    <p className="font-semibold">Faltan:</p>
+                    <p className="mt-2">
+                      {missingFields
+                        .map((field) => MISSING_FIELD_LABELS[field] || field)
+                        .join(", ")}
+                    </p>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowMissingProfileModal(false)}
+                  className="w-full rounded-lg bg-red-600 px-4 py-3 text-sm font-semibold text-white hover:bg-red-700"
+                >
+                  Completar datos faltantes
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {isMinorista && (
           <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            Estos datos se usan para el checkout minorista y quedan guardados en cada pedido como historial de envio.
+            Usamos la información de tu perfil minorista para agilizar la gestión de tus compras y coordinar el envío de tus pedidos de forma rápida y segura.
           </div>
         )}
 
@@ -301,7 +372,11 @@ export default function Perfil() {
           </div>
         )}
 
-        <form className="space-y-6" onSubmit={handleSubmit}>
+        <form
+          ref={profileRef}
+          className="space-y-6"
+          onSubmit={handleSubmit}
+        >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Input
               label="Nombre completo"

@@ -3,9 +3,9 @@
 import { useSelector, useDispatch } from "react-redux";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
-import { removeFromCart, updateQuantity, clearCart } from "../../../store/slices/cartSlice";
+import { removeFromCart, updateQuantity, clearCart, normalizeCart } from "../../../store/slices/cartSlice";
 import { Trash2, Plus, Minus, ArrowLeft } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CartMobile } from "./CartMobile";
 
 export function CartContent() {
@@ -14,6 +14,15 @@ export function CartContent() {
   const { user } = useAuth();
   const cartItems = useSelector((state) => state.cart.items || []);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    // Ensure persisted items have normalized brand data after reload
+    try {
+      dispatch(normalizeCart());
+    } catch (e) {
+      // ignore
+    }
+  }, [dispatch]);
 
   const subtotal = cartItems.reduce(
     (total, item) => total + item.precioUnitario * item.cantidad,
@@ -90,161 +99,352 @@ export function CartContent() {
   }
 
   return (
-  <div className="max-w-6xl mx-auto px-4">
+    <div className="max-w-[1400px] mx-auto px-8">
 
-    {/* HEADER */}
-    <div className="mb-6">
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">Tu Carrito</h1>
-      <p className="text-gray-600 text-sm">{cartItems.length} producto(s)</p>
-    </div>
-
-    <div className="md:hidden">
-      <CartMobile
-        cartItems={cartItems}
-        handleUpdateQuantity={handleUpdateQuantity}
-        handleRemoveItem={handleRemoveItem}
-        formatPrice={(price) =>
-          `$${Number(price).toLocaleString("es-AR", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}`
-        }
-      />
-    </div>
-
-    {/* ================= DESKTOP ================= */}
-    <div className="hidden md:block">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        {/* TABLA DE PRODUCTOS */}
-        <div className="lg:col-span-2">
-          <div className="bg-white rounded-lg border overflow-hidden">
-            <div className="bg-red-900 text-white grid grid-cols-[100px_1fr_120px_100px_80px] px-6 py-4 font-semibold">
-              <div>Código</div>
-              <div>Descripción</div>
-              <div>Precio Unit.</div>
-              <div>Cantidad</div>
-              <div></div>
-            </div>
-
-            <div className="divide-y">
-              {cartItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="grid grid-cols-[100px_1fr_120px_100px_80px] px-6 py-4 items-center hover:bg-gray-50"
-                >
-                  <div className="font-mono text-sm text-gray-600">{item.codigo}</div>
-
-                  <div>
-                    <p className="font-medium text-gray-900">{item.nombre}</p>
-                  </div>
-
-                  <div className="text-right">
-                    ${Number(item.precioUnitario).toLocaleString("es-AR", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </div>
-
-                  <div className="flex items-center gap-2 justify-center">
-                    <button
-                      onClick={() =>
-                        handleUpdateQuantity(item.id, item.cantidad - 1)
-                      }
-                      className="p-1 hover:bg-gray-200 rounded transition-colors"
-                    >
-                      <Minus className="w-4 h-4 text-gray-600" />
-                    </button>
-
-                    <input
-                      type="number"
-                      min="1"
-                      value={item.cantidad}
-                      onChange={(e) =>
-                        handleUpdateQuantity(item.id, parseInt(e.target.value))
-                      }
-                      className="w-12 text-center border border-gray-300 rounded px-2 py-1"
-                    />
-
-                    <button
-                      onClick={() =>
-                        handleUpdateQuantity(item.id, item.cantidad + 1)
-                      }
-                      className="p-1 hover:bg-gray-200 rounded transition-colors"
-                    >
-                      <Plus className="w-4 h-4 text-gray-600" />
-                    </button>
-                  </div>
-
-                  <div className="text-right">
-                    <button
-                      onClick={() => handleRemoveItem(item.id)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <button
-            onClick={() => router.push("/") }
-            className="mt-4 flex items-center gap-2 text-red-600 hover:text-red-700 font-medium text-sm"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Continuar Comprando
-          </button>
-        </div>
-
-        {/* RESUMEN */}
-        <div className="lg:col-span-1">
-          <div className="bg-white rounded-lg border p-5 h-fit sticky top-24">
-            <h2 className="text-lg font-bold text-gray-900 mb-5">Resumen</h2>
-
-            <div className="space-y-3 mb-5 pb-5 border-b">
-              <div className="flex justify-between text-gray-600 text-sm">
-                <span>Subtotal:</span>
-                <span>
-                  ${Number(subtotal).toLocaleString("es-AR", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
-                </span>
-              </div>
-
-              <div className="text-xl font-bold text-gray-900 flex justify-between">
-                <span>Total:</span>
-                <span>
-                  ${Number(subtotal).toLocaleString("es-AR", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
-                </span>
-              </div>
-            </div>
-
-            <button
-              onClick={handleCheckout}
-              disabled={isProcessing}
-              className="w-full bg-green-600 text-white font-semibold py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mb-2 text-sm"
-            >
-              {isProcessing ? "Procesando..." : "Confirmar Pedido"}
-            </button>
-
-            <button
-              onClick={() => dispatch(clearCart())}
-              className="w-full border border-gray-300 text-gray-700 font-semibold py-2 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-            >
-              Limpiar Carrito
-            </button>
-          </div>
-        </div>
-
+      {/* HEADER */}
+      <div className="bg-transparent">
+        <h1 className="text-3xl font-bold text-gray-900">Tu Carrito</h1>
+        <p className="mt-1 text-sm text-gray-500">{cartItems.length} producto(s)</p>
       </div>
+
+      <div className="md:hidden mt-4">
+        <CartMobile
+          cartItems={cartItems}
+          handleUpdateQuantity={handleUpdateQuantity}
+          handleRemoveItem={handleRemoveItem}
+          formatPrice={(price) =>
+            `$${Number(price).toLocaleString("es-AR", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}`
+          }
+        />
+      </div>
+
+{/* ================= TABLA DE PRODUCTOS ================= */}
+
+<div className="w-full min-w-0">
+
+  {/* CONTENEDOR DE LA TABLA */}
+  <div className="w-full overflow-hidden rounded-lg border border-gray-200 bg-white">
+
+    {/* ================= HEADER ================= */}
+    <div
+      className="
+        grid
+        grid-cols-[minmax(0,2.4fr)_0.8fr_1fr_1.2fr_1.5fr_45px]
+        items-center
+        bg-red-700
+        px-5
+        py-3
+        text-sm
+        font-semibold
+        uppercase
+        tracking-wide
+        text-white
+      "
+    >
+      <div>
+        Producto
+      </div>
+
+      <div className="text-center">
+        Marca
+      </div>
+
+      <div className="text-center">
+        Código
+      </div>
+
+      <div className="text-right">
+        Precio
+      </div>
+
+      <div className="text-center">
+        Cantidad
+      </div>
+
+      <div></div>
+    </div>
+
+
+    {/* ================= PRODUCTOS ================= */}
+    <div className="divide-y divide-gray-200">
+
+      {cartItems.map((item) => (
+
+        <div
+          key={item.id}
+          className="
+            grid
+            grid-cols-[minmax(0,2.4fr)_0.8fr_1fr_1.2fr_1.5fr_45px]
+            items-center
+            px-5
+            py-5
+            transition-colors
+            hover:bg-gray-50
+          "
+        >
+
+          {/* ================= PRODUCTO ================= */}
+          <div className="min-w-0 pr-4">
+
+            <p
+              className="
+                text-[15px]
+                font-semibold
+                leading-5
+                text-gray-900
+              "
+            >
+              {item.nombre}
+            </p>
+
+          </div>
+
+
+          {/* ================= MARCA ================= */}
+          <div className="min-w-0 px-1 text-center">
+
+            <span
+              className="
+                block
+                text-sm
+                text-gray-600
+                break-words
+              "
+            >
+              {item.marca ||
+                (typeof item.producto?.marca === "string"
+                  ? item.producto.marca
+                  : item.producto?.marca?.nombre ||
+                    item.producto?.marca?.label) ||
+                "-"}
+            </span>
+
+          </div>
+
+
+          {/* ================= CÓDIGO ================= */}
+          <div className="min-w-0 px-1 text-center">
+
+            <span
+              className="
+                inline-block
+                max-w-full
+                rounded
+                bg-gray-100
+                px-2
+                py-1
+                font-mono
+                text-xs
+                text-gray-600
+                whitespace-normal
+                break-all
+              "
+            >
+              {item.codigo || "-"}
+            </span>
+
+          </div>
+
+
+          {/* ================= PRECIO ================= */}
+          <div className="min-w-0 text-right">
+
+            <span
+              className="
+                text-sm
+                font-semibold
+                text-gray-900
+                whitespace-nowrap
+              "
+            >
+              $
+              {Number(item.precioUnitario).toLocaleString("es-AR", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </span>
+
+          </div>
+
+
+          {/* ================= CANTIDAD ================= */}
+          <div className="flex items-center justify-center gap-1">
+
+            <button
+              onClick={() =>
+                handleUpdateQuantity(
+                  item.id,
+                  item.cantidad - 1
+                )
+              }
+              className="
+                flex
+                h-7
+                w-7
+                shrink-0
+                items-center
+                justify-center
+                rounded-md
+                hover:bg-gray-200
+                transition
+              "
+            >
+              <Minus className="h-4 w-4 text-gray-600" />
+            </button>
+
+
+            <input
+              type="number"
+              min="1"
+              value={item.cantidad}
+              onChange={(e) =>
+                handleUpdateQuantity(
+                  item.id,
+                  parseInt(e.target.value)
+                )
+              }
+              className="
+                h-8
+                w-11
+                shrink-0
+                rounded-md
+                border
+                border-gray-300
+                px-1
+                text-center
+                text-sm
+                focus:border-red-500
+                focus:outline-none
+                focus:ring-1
+                focus:ring-red-500
+              "
+            />
+
+
+            <button
+              onClick={() =>
+                handleUpdateQuantity(
+                  item.id,
+                  item.cantidad + 1
+                )
+              }
+              className="
+                flex
+                h-7
+                w-7
+                shrink-0
+                items-center
+                justify-center
+                rounded-md
+                hover:bg-gray-200
+                transition
+              "
+            >
+              <Plus className="h-4 w-4 text-gray-600" />
+            </button>
+
+          </div>
+
+
+          {/* ================= ELIMINAR ================= */}
+          <div className="flex justify-center">
+
+            <button
+              onClick={() => handleRemoveItem(item.id)}
+              className="
+                flex
+                h-8
+                w-8
+                items-center
+                justify-center
+                rounded-full
+                text-red-600
+                transition
+                hover:bg-red-50
+              "
+              title="Eliminar producto"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+
+          </div>
+
+        </div>
+
+      ))}
+
     </div>
 
   </div>
 
-)}
+
+  {/* ================= CONTINUAR COMPRANDO ================= */}
+
+  <button
+    onClick={() => router.push("/")}
+    className="
+      mt-5
+      flex
+      items-center
+      gap-2
+      text-sm
+      font-medium
+      text-red-600
+      transition
+      hover:text-red-700
+    "
+  >
+    <ArrowLeft className="h-4 w-4" />
+    Continuar Comprando
+  </button>
+
+</div>
+          {/* RESUMEN */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-xl shadow-sm p-5 h-fit sticky top-24">
+              <h2 className="text-lg font-bold text-gray-900 mb-5">Resumen</h2>
+
+              <div className="space-y-3 mb-5 pb-5 border-b border-gray-100">
+                <div className="flex justify-between text-gray-600 text-sm">
+                  <span>Subtotal:</span>
+                  <span>
+                    ${Number(subtotal).toLocaleString("es-AR", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                </div>
+
+                <div className="text-xl font-bold text-gray-900 flex justify-between">
+                  <span>Total:</span>
+                  <span>
+                    ${Number(subtotal).toLocaleString("es-AR", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                onClick={handleCheckout}
+                disabled={isProcessing}
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed mb-2 text-sm"
+              >
+                {isProcessing ? "Procesando..." : "Confirmar Pedido"}
+              </button>
+
+              <button
+                onClick={() => dispatch(clearCart())}
+                className="w-full border border-gray-300 text-gray-700 font-semibold py-2 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+              >
+                Limpiar Carrito
+              </button>
+            </div>
+          </div>
+        </div>
+  )}
+ 

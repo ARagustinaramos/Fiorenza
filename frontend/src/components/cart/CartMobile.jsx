@@ -1,5 +1,11 @@
 import { Trash2 } from "lucide-react";
 
+const getProductBrand = (product) => {
+  if (!product) return null;
+  if (typeof product.marca === "string") return product.marca;
+  return product.marca?.nombre || product.marca?.label || null;
+};
+
 export function CartMobile({
   cartItems,
   handleUpdateQuantity,
@@ -19,6 +25,7 @@ export function CartMobile({
     <div className="flex flex-col gap-3">
       {cartItems.map((item) => {
   const imageUrl = item.producto?.images?.[0]?.url || null;
+  const brand = item.marca || getProductBrand(item.producto) || "Sin marca";
 
   return (
     <div
@@ -37,12 +44,12 @@ export function CartMobile({
         )}
       </div>
 
+
           <div className="flex-1 min-w-0 flex flex-col justify-between">
             <div>
-              <p className="text-xs text-gray-500">{item.codigo}</p>
-              <p className="text-sm font-medium text-gray-900 line-clamp-2">
-                {item.nombre}
-              </p>
+              <p className="text-[10px] text-gray-500">{item.codigo}</p>
+              <p className="text-[11px] text-gray-500 font-medium">{brand}</p>
+              <p className="mt-1 text-sm text-gray-900 leading-5 line-clamp-2">{item.nombre}</p>
             </div>
 
             <p className="text-xs text-gray-500">

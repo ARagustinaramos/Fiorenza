@@ -251,7 +251,19 @@ export function ProductTableNew() {
       }
 
       const data = await res.json();
-      setProducts(data.data || []);
+      // Priorizar localmente productos en oferta para usuarios minoristas
+      const items = data.data || [];
+      const sortedItems = webOnly
+        ? items.slice().sort((a, b) => {
+            const aOferta = Boolean(a.esOferta || a.oferta);
+            const bOferta = Boolean(b.esOferta || b.oferta);
+            if (aOferta && !bOferta) return -1;
+            if (!aOferta && bOferta) return 1;
+            return 0;
+          })
+        : items;
+
+      setProducts(sortedItems);
       setTotalPages(data.pagination?.pages || 1);
       hasLoadedOnceRef.current = true;
     } catch (error) {
