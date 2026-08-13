@@ -1,8 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Eye, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+
+const getClienteFullName = (cliente) =>
+  cliente?.perfil?.nombreCompleto ||
+  cliente?.perfilMinorista?.nombreCompleto ||
+  "";
+
+const getClienteName = (cliente) => getClienteFullName(cliente) || "Sin nombre";
+
+const getClientePhone = (cliente) =>
+  cliente?.perfil?.telefono || cliente?.perfilMinorista?.telefono || "-";
+
+const getClienteDetailName = (cliente) => getClienteFullName(cliente) || cliente?.email;
 
 export default function AdminClientes() {
   const [clientes, setClientes] = useState([]);
@@ -24,6 +36,8 @@ export default function AdminClientes() {
     coeficiente: 0,
   });
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [typeFilter, setTypeFilter] = useState("ALL");
   const PAGE_SIZE = 20;
   const searchParams = useSearchParams();
   const refresh = searchParams.get("refresh");
@@ -234,9 +248,38 @@ export default function AdminClientes() {
     }
   };
 
-  const totalPages = Math.max(1, Math.ceil(clientes.length / PAGE_SIZE));
+  const filteredClientes = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    return clientes.filter((cliente) => {
+      const clientName = getClienteFullName(cliente).toLowerCase();
+      const clientEmail = (cliente.email || "").toLowerCase();
+
+      const matchesSearch =
+        !normalizedSearch ||
+        clientName.includes(normalizedSearch) ||
+        clientEmail.includes(normalizedSearch);
+
+      const matchesType =
+        typeFilter === "ALL" || String(cliente.rol || "").toUpperCase() === typeFilter;
+
+      return matchesSearch && matchesType;
+    });
+  }, [clientes, searchTerm, typeFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredClientes.length / PAGE_SIZE));
   const startIndex = (currentPage - 1) * PAGE_SIZE;
-  const paginatedClientes = clientes.slice(startIndex, startIndex + PAGE_SIZE);
+  const paginatedClientes = filteredClientes.slice(startIndex, startIndex + PAGE_SIZE);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, typeFilter]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   if (!hasLoadedOnce && loading) {
     return (
@@ -269,6 +312,25 @@ export default function AdminClientes() {
       <main className="flex-1 p-8">
         <h1 className="text-3xl font-bold mb-8">Clientes</h1>
 
+        <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Buscar por mail o nombre"
+            className="w-full md:max-w-md rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-100"
+          />
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-100"
+          >
+            <option value="ALL">Todos los tipos</option>
+            <option value="MAYORISTA">Mayoristas</option>
+            <option value="MINORISTA">Minoristas</option>
+          </select>
+        </div>
+
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -296,17 +358,19 @@ export default function AdminClientes() {
               </thead>
 
               <tbody className="divide-y divide-gray-200">
-                {clientes.length === 0 ? (
+                {filteredClientes.length === 0 ? (
                   <tr>
                     <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
-                      No hay clientes disponibles
+                      {clientes.length === 0
+                        ? "No hay clientes disponibles"
+                        : "No hay clientes que coincidan con la busqueda."}
                     </td>
                   </tr>
                 ) : (
                   paginatedClientes.map((cliente) => (
                     <tr key={cliente.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                        {cliente.perfil?.nombreCompleto || "Sin nombre"}
+                        {getClienteName(cliente)}
                       </td>
 
                       <td className="px-6 py-4 text-sm text-gray-600">
@@ -314,7 +378,7 @@ export default function AdminClientes() {
                       </td>
 
                       <td className="px-6 py-4 text-sm text-gray-600">
-                        {cliente.perfil?.telefono || "-"}
+                        {getClientePhone(cliente)}
                       </td>
 
                       <td className="px-6 py-4">
@@ -358,10 +422,10 @@ export default function AdminClientes() {
           </div>
         </div>
 
-        {clientes.length > PAGE_SIZE && (
+        {filteredClientes.length > PAGE_SIZE && (
           <div className="mt-4 flex items-center justify-between">
             <p className="text-sm text-gray-600">
-              Mostrando {startIndex + 1} a {Math.min(startIndex + PAGE_SIZE, clientes.length)} de {clientes.length} clientes
+              Mostrando {startIndex + 1} a {Math.min(startIndex + PAGE_SIZE, filteredClientes.length)} de {filteredClientes.length} clientes
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -391,7 +455,7 @@ export default function AdminClientes() {
             <div className="bg-white rounded-xl shadow-xl w-full max-w-xl max-h-[85vh] overflow-y-auto">
               <div className="sticky top-0 bg-gradient-to-r from-red-600 to-red-700 text-white px-5 py-3 flex justify-between items-center">
                 <h2 className="text-lg font-semibold">
-                  {selectedCliente.perfil?.nombreCompleto || selectedCliente.email}
+                  {getClienteDetailName(selectedCliente)}
                 </h2>
                 <button
                   onClick={() => setSelectedCliente(null)}

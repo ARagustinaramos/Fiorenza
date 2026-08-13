@@ -804,7 +804,7 @@ export default function Carrito() {
       </div>
 
       <div className="hidden md:block bg-gray-50 py-6 px-4 md:px-8">
-        <div className="max-w-[1360px] mx-auto flex flex-col lg:flex-row gap-6 items-start">
+        <div className="max-w-[1360px] mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_240px] gap-6 items-start">
 
           <div className="flex-1 w-full space-y-6">
             {showPayment && (
@@ -857,46 +857,71 @@ export default function Carrito() {
               </div>
             )}
 
-            <div className={`bg-white rounded-lg border border-[#D9D9D9] overflow-hidden shadow-sm ${showPayment ? 'opacity-40 pointer-events-none' : ''}`}>
-
-              <div className="hidden md:grid bg-red-700 text-white grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr] px-6 py-3">
+            <div
+              className={`w-full min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm ${showPayment ? "opacity-40 pointer-events-none" : ""
+                }`}
+            >
+              {/* HEADER */}
+              <div className="hidden md:grid grid-cols-[minmax(0,2.4fr)_0.75fr_0.9fr_1.15fr_1.45fr_42px] items-center gap-4 bg-red-700 px-5 py-3 text-white">
                 <div className="font-bold">Producto</div>
                 <div className="font-bold">Marca</div>
                 <div className="font-bold">Código</div>
-                <div className="font-bold">Cantidad</div>
-                <div className="font-bold">Precio Unitario</div>
-                <div className="font-bold">Total</div>
-                <div className="font-bold">Acción</div>
+                <div className="font-bold text-center">Cantidad</div>
+                <div className="font-bold text-right">Precio unitario</div>
+                <div></div>
               </div>
 
-              <div className="divide-y">
+              {/* FILAS */}
+              <div className="divide-y divide-gray-100">
                 {cartItems.map((item) => (
                   <div
                     key={item.id}
-                    className="grid grid-cols-1 gap-3 px-4 py-4 hover:bg-gray-50 md:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr] md:px-6 md:items-center"
+                    className="grid grid-cols-1 gap-3 px-4 py-4 transition-colors hover:bg-gray-50 md:grid-cols-[minmax(0,2.4fr)_0.75fr_0.9fr_1.15fr_1.45fr_42px] md:items-center md:gap-4 md:px-5 md:py-5"
                   >
-                    <div>
-                      <span className="md:hidden block text-xs font-semibold uppercase text-gray-500">Producto</span>
-                      <span className="break-words">{item.nombre}</span>
+                    {/* PRODUCTO */}
+                    <div className="min-w-0">
+                      <span className="md:hidden block text-xs font-semibold uppercase text-gray-500 mb-1">
+                        Producto
+                      </span>
+
+                      <span className="block break-words text-[15px] font-semibold leading-5 text-gray-900">
+                        {item.nombre}
+                      </span>
                     </div>
-                    <div className="text-gray-500">
-                      <span className="md:hidden block text-xs font-semibold uppercase text-gray-500">Marca</span>
-                      <span className="break-words">
+
+                    {/* MARCA */}
+                    <div className="min-w-0">
+                      <span className="md:hidden block text-xs font-semibold uppercase text-gray-500 mb-1">
+                        Marca
+                      </span>
+
+                      <span className="block break-words text-xs text-gray-600">
                         {item.marca ||
                           (typeof item.producto?.marca === "string"
                             ? item.producto.marca
                             : item.producto?.marca?.nombre ||
-                              item.producto?.marca?.label) ||
+                            item.producto?.marca?.label) ||
                           "Sin marca"}
                       </span>
                     </div>
-                    <div className="text-gray-500">
-                      <span className="md:hidden block text-xs font-semibold uppercase text-gray-500">Codigo</span>
-                      <span className="break-all">{item.codigo}</span>
+
+                    {/* CÓDIGO */}
+                    <div>
+                      <span className="md:hidden block text-xs font-semibold uppercase text-gray-500 mb-1">
+                        Código
+                      </span>
+
+                      <span className="inline-flex max-w-full break-all rounded-md bg-gray-100 px-2 py-1 font-mono text-xs text-gray-600">
+                        {item.codigo}
+                      </span>
                     </div>
 
+                    {/* CANTIDAD */}
                     <div>
-                      <span className="md:hidden block text-xs font-semibold uppercase text-gray-500">Cantidad</span>
+                      <span className="md:hidden block text-xs font-semibold uppercase text-gray-500 mb-1">
+                        Cantidad
+                      </span>
+
                       <input
                         type="number"
                         min="1"
@@ -904,25 +929,32 @@ export default function Carrito() {
                         onChange={(e) =>
                           handleQuantityChange(item.id, Number(e.target.value))
                         }
-                        className="w-20 border rounded text-center"
+                        className="w-20 rounded-md border border-gray-300 px-2 py-1.5 text-center text-sm focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
                       />
                     </div>
+                    {/* PRECIO */}
+                    <div className="md:text-right">
+                      <span className="md:hidden block text-xs font-semibold uppercase text-gray-500 mb-1">
+                        Precio unitario
+                      </span>
 
-                    <div>
-                      <span className="md:hidden block text-xs font-semibold uppercase text-gray-500">Precio unitario</span>
-                      {formatPrice(item.precioUnitario)}
-                    </div>
-                    <div className="font-bold">
-                      <span className="md:hidden block text-xs font-semibold uppercase text-gray-500">Total</span>
-                      {formatPrice(item.precioUnitario * item.cantidad)}
+                      <span className="text-sm font-medium text-gray-900">
+                        {formatPrice(item.precioUnitario)}
+                      </span>
                     </div>
 
-                    <button
-                      onClick={() => handleRemoveItem(item.id)}
-                      className="text-red-600 text-xs flex items-center gap-1"
-                    >
-                      <Trash2 className="w-3 h-3" /> Eliminar
-                    </button>
+                    {/* ACCIÓN */}
+                    <div className="flex md:justify-center">
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(item.id)}
+                        aria-label={`Eliminar ${item.nombre}`}
+                        title="Eliminar producto"
+                        className="flex h-8 w-8 items-center justify-center rounded-full text-red-600 transition-colors hover:bg-red-50 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1090,7 +1122,7 @@ export default function Carrito() {
               </button>
             </div>
           </div>
-          <div className="w-full lg:w-[280px] bg-white border rounded-xl p-4 sm:p-6 shadow-sm lg:sticky lg:top-6">
+          <div className="w-full lg:w-[240px] bg-white border rounded-xl p-4 sm:p-6 shadow-sm lg:sticky lg:top-6">
             <h2 className="text-xl font-bold mb-4">Resumen del pedido</h2>
 
             <div className="space-y-4">
@@ -1098,13 +1130,14 @@ export default function Carrito() {
                 <span>Subtotal</span>
                 <span>{formatPrice(subtotal)}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Envío</span>
-                <span>
+              <div className="flex items-center justify-between gap-3">
+                <span>Envío estimado</span>
+
+                <span className="shrink-0 text-right">
                   {isMinorista
                     ? estimatedShippingCost == null
                       ? "Seleccionar"
-                      : `${formatPrice(estimatedShippingCost)} estimado`
+                      : formatPrice(estimatedShippingCost)
                     : "A coordinar"}
                 </span>
               </div>

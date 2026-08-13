@@ -8,6 +8,12 @@ const getUnitPrice = (product, userRole) => {
   return Number(product.precioConIva ?? product.precioMayoristaSinIva ?? 0);
 };
 
+const getProductBrand = (product) => {
+  if (!product) return null;
+  if (typeof product.marca === "string") return product.marca;
+  return product.marca?.nombre || product.marca?.label || null;
+};
+
 const normalizeCartItems = (items, userRole) => {
   const role = String(userRole || "").toUpperCase();
 
@@ -65,6 +71,7 @@ const mapCartItems = (items, userRole) =>
     precioUnitario: getUnitPrice(item.product, userRole),
     cantidad: item.quantity,
     producto: item.product,
+    marca: getProductBrand(item.product),
   }));
 
 export const getMyCart = async (req, res) => {
@@ -77,6 +84,7 @@ export const getMyCart = async (req, res) => {
             product: {
               include: {
                 images: true,
+                marca: true,
               },
             },
           },
@@ -223,6 +231,7 @@ console.log("sanitizedItems", sanitizedItems);
             product: {
               include: {
                 images: true,
+                marca: true,
               },
             },
           },
