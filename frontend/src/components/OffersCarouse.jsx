@@ -13,7 +13,8 @@ export function OffersCarousel() {
         const res = await fetch(buildApiUrl("/banners"), { cache: "no-store" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        setOffers(Array.isArray(data) ? data : []);
+        const list = Array.isArray(data) ? data : [];
+        setOffers(list.filter((banner) => banner.title !== "hero"));
       } catch (error) {
         console.error("Error cargando banners:", error);
         setOffers([]);
