@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { buildApiUrl } from "../../lib/api";
 
 export default function RegistroPage() {
   const router = useRouter();
-  const enableMinorista =
-    String(process.env.NEXT_PUBLIC_ENABLE_MINORISTA || "false").toLowerCase() ===
-    "true";
+  const enableMinorista = true;
 
   const [form, setForm] = useState({
     nombreCompleto: "",
@@ -21,12 +19,6 @@ export default function RegistroPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
-
-  useEffect(() => {
-    if (!enableMinorista) {
-      router.replace("/login");
-    }
-  }, [enableMinorista, router]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

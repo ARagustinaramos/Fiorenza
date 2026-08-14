@@ -18,19 +18,15 @@ export function Sidebar({ children }) {
   const { user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const enableMinorista =
-    String(process.env.NEXT_PUBLIC_ENABLE_MINORISTA || "false").toLowerCase() ===
-    "true";
-
   const userRole = user?.rol?.toUpperCase() || null;
 
   const isActive = (path) => pathname === path;
 
-  const getProductsPath = () => {
-    if (userRole === "MAYORISTA") return "/mayorista";
-    if (userRole === "MINORISTA") return enableMinorista ? "/" : "/login";
-    return "/";
-  };
+ const getProductsPath = () => {
+  if (userRole === "MAYORISTA") return "/mayorista";
+  if (userRole === "MINORISTA") return "/";
+  return "/";
+}
 
   const menuItems = userRole
     ? [
