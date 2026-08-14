@@ -13,16 +13,14 @@ export function LoginForm({ onSuccess }) {
   const dispatch = useDispatch();
   const googleInitRef = useRef(false);
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-  const enableMinorista =
-    String(process.env.NEXT_PUBLIC_ENABLE_MINORISTA || "false").toLowerCase() ===
-    "true";
+  const enableMinorista = true;
   const [accountType, setAccountType] = useState("MAYORISTA");
   const [hideMayoristaOption, setHideMayoristaOption] = useState(false);
 
- useEffect(() => {
+useEffect(() => {
   const savedMode = localStorage.getItem("loginMode");
 
-  if (savedMode === "minorista" && enableMinorista) {
+  if (savedMode === "minorista") {
     setAccountType("MINORISTA");
     setHideMayoristaOption(true);
   }
@@ -33,13 +31,7 @@ export function LoginForm({ onSuccess }) {
   }
 
   localStorage.removeItem("loginMode");
-}, [enableMinorista]);
-
-  useEffect(() => {
-    if (!enableMinorista && accountType === "MINORISTA") {
-      setAccountType("MAYORISTA");
-    }
-  }, [accountType, enableMinorista]);
+}, []);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -249,15 +241,12 @@ console.log("token", token);
           >
             <div className="flex items-center gap-3">
               <input
-                type="radio"
-                name="accountType"
-                value="MINORISTA"
-                checked={accountType === "MINORISTA"}
-                onChange={() =>
-                  enableMinorista && setAccountType("MINORISTA")
-                }
-                disabled={!enableMinorista}
-                className="accent-red-600"
+                 type="radio"
+                 name="accountType"
+                 value="MINORISTA"
+                 checked={accountType === "MINORISTA"}
+                 onChange={() => setAccountType("MINORISTA")}
+                 className="accent-red-600"
               />
               <p className="text-sm font-medium text-gray-900">
                 Acceso Minorista
