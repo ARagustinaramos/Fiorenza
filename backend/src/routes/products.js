@@ -68,8 +68,8 @@ router.get("/offers", getOfferProducts);
 router.get("/new", getNewProducts);
 router.get("/featured", getFeaturedProducts);
 router.get("/low-stock", auth, requireRole("ADMIN"), getLowStockProducts);
-router.get("/filters/marcas", getMarcasFiltro);
-router.get("/filters/rubros", getRubrosFiltro);
+router.get("/filters/marcas", optionalAuth, getMarcasFiltro);
+router.get("/filters/rubros", optionalAuth, getRubrosFiltro);
 
 router.get("/", optionalAuth, getProducts);
 router.get("/:id", optionalAuth, getProductById);

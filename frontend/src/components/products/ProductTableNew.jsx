@@ -307,9 +307,15 @@ export function ProductTableNew() {
     const fetchFiltros = async () => {
       try {
         const webOnly = user?.rol?.toUpperCase() === "MINORISTA";
+        const token = localStorage.getItem("token");
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
         const [marcasRes, rubrosRes] = await Promise.all([
-          fetch(buildApiUrl(`/products/filters/marcas${webOnly ? "?web=true" : ""}`)),
-          fetch(buildApiUrl(`/products/filters/rubros${webOnly ? "?web=true" : ""}`)),
+          fetch(buildApiUrl(`/products/filters/marcas${webOnly ? "?web=true" : ""}`), {
+            headers,
+          }),
+          fetch(buildApiUrl(`/products/filters/rubros${webOnly ? "?web=true" : ""}`), {
+            headers,
+          }),
         ]);
 
         if (marcasRes.ok) setMarcas(await marcasRes.json());
