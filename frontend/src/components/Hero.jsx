@@ -63,23 +63,32 @@ export function Hero() {
 
   if (heroImages.length === 0) {
     return (
-      <section className="h-[clamp(280px,35vh,450px)] bg-gray-900" />
+      <section className="h-[280px] sm:h-[380px] lg:h-[450px] bg-gray-900" />
     );
   }
 
   return (
-    <section className="relative w-full h-[clamp(280px,35vh,450px)] bg-gray-900 overflow-hidden">
+    <section className="relative w-full h-[280px] sm:h-[380px] lg:h-[450px] bg-gray-900 overflow-hidden">
       
       {/* IMÁGENES CON FADE */}
       {heroImages.map((img, idx) => (
-        <img
+        <div
           key={img.id}
-          src={img.imageUrl}
-          alt="Hero"
-          className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-1000 ${
+          className={`absolute inset-0 transition-opacity duration-1000 ${
             currentImageIndex === idx ? "opacity-100" : "opacity-0"
           }`}
-        />
+        >
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 scale-110 bg-cover bg-center blur-2xl"
+            style={{ backgroundImage: `url(${img.imageUrl})` }}
+          />
+          <img
+            src={img.imageUrl}
+            alt="Hero"
+            className="relative z-10 h-full w-full object-contain"
+          />
+        </div>
       ))}
 
      
