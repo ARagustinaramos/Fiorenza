@@ -63,12 +63,12 @@ export function Hero() {
 
   if (heroImages.length === 0) {
     return (
-      <section className="h-[280px] sm:h-[380px] lg:h-[450px] bg-gray-900" />
+      <section className="h-[clamp(280px,35vh,450px)] bg-gray-900" />
     );
   }
 
   return (
-    <section className="relative h-[280px] sm:h-[380px] lg:h-[450px] bg-gray-900 overflow-hidden">
+    <section className="relative w-full h-[clamp(280px,35vh,450px)] bg-gray-900 overflow-hidden">
       
       {/* IMÁGENES CON FADE */}
       {heroImages.map((img, idx) => (
