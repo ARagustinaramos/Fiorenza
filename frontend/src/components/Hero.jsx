@@ -68,7 +68,7 @@ export function Hero() {
   }
 
   return (
-    <section className="relative h-[280px] sm:h-[380px] lg:h-[450px] overflow-hidden">
+    <section className="relative w-full h-[280px] sm:h-[380px] lg:h-[450px] overflow-hidden">
       
       {/* IMÁGENES CON FADE */}
       {heroImages.map((img, idx) => (
@@ -76,13 +76,12 @@ export function Hero() {
           key={img.id}
           src={img.imageUrl}
           alt="Hero"
-          className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-1000 ${
+          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
             currentImageIndex === idx ? "opacity-100" : "opacity-0"
           }`}
         />
       ))}
 
-     
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
 
       {heroImages.length > 1 && (
