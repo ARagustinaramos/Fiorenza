@@ -68,7 +68,7 @@ export function Hero() {
   }
 
   return (
-    <section className="relative w-full h-[280px] sm:h-[380px] lg:h-[450px] overflow-hidden">
+    <section className="relative w-full h-[280px] sm:h-[380px] lg:h-[500px] overflow-hidden">
       
       {/* IMÁGENES CON FADE */}
       {heroImages.map((img, idx) => (
