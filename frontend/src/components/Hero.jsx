@@ -10,6 +10,7 @@ const DEFAULT_IMAGE =
 export function Hero() {
   const [heroImages, setHeroImages] = useState([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [imageRatios, setImageRatios] = useState({});
 
   useEffect(() => {
     const fetchHero = async () => {
@@ -63,12 +64,17 @@ export function Hero() {
 
   if (heroImages.length === 0) {
     return (
-      <section className="h-[280px] sm:h-[380px] lg:h-[450px] bg-gray-900" />
+      <section className="aspect-[16/6] w-full bg-gray-900" />
     );
   }
 
   return (
-    <section className="relative w-full h-[280px] sm:h-[380px] lg:h-[450px] bg-gray-900 overflow-hidden">
+    <section
+      className="relative w-full bg-gray-900 overflow-hidden"
+      style={{
+        aspectRatio: imageRatios[currentImageIndex] ?? "16 / 6",
+      }}
+    >
       
       {/* IMÁGENES CON FADE */}
       {heroImages.map((img, idx) => (
@@ -78,14 +84,18 @@ export function Hero() {
             currentImageIndex === idx ? "opacity-100" : "opacity-0"
           }`}
         >
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 scale-110 bg-cover bg-center blur-2xl"
-            style={{ backgroundImage: `url(${img.imageUrl})` }}
-          />
           <img
             src={img.imageUrl}
             alt="Hero"
+            onLoad={(event) => {
+              const { naturalWidth, naturalHeight } = event.currentTarget;
+              if (!naturalWidth || !naturalHeight) return;
+
+              setImageRatios((prev) => ({
+                ...prev,
+                [idx]: naturalWidth / naturalHeight,
+              }));
+            }}
             className="relative z-10 h-full w-full object-contain"
           />
         </div>
