@@ -70,37 +70,27 @@ export function Hero() {
   return (
     <section className="relative h-[280px] sm:h-[380px] lg:h-[450px] overflow-hidden">
       
-      {/* FONDO DIFUMINADO */}
-      {heroImages.map((img, idx) => (
-        <img
-          key={`bg-${img.id}`}
-          src={img.imageUrl}
-          alt=""
-          aria-hidden="true"
-          className={`absolute inset-0 w-full h-full object-cover scale-110 blur-2xl transition-opacity duration-1000 ${
-            currentImageIndex === idx ? "opacity-100" : "opacity-0"
-          }`}
-        />
-      ))}
-
-      {/* IMAGEN PRINCIPAL COMPLETA */}
+      {/* IMÁGENES CON FADE */}
       {heroImages.map((img, idx) => (
         <img
           key={img.id}
           src={img.imageUrl}
           alt="Hero"
+          className={`absolute inset-0 transition-opacity duration-1000 ${
+            currentImageIndex === idx ? "opacity-100" : "opacity-0"
+          }`}
           className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-1000 ${
             currentImageIndex === idx ? "opacity-100" : "opacity-0"
           }`}
         />
       ))}
 
-      {/* DEGRADADO */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent pointer-events-none" />
+     
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
 
-      {/* CONTROLES */}
       {heroImages.length > 1 && (
         <>
+          {/* BOTONES MEJORADOS */}
           <button
             onClick={prevImage}
             className="absolute left-4 top-1/2 -translate-y-1/2 backdrop-blur-md bg-white/20 text-white p-3 rounded-full hover:bg-white/30 transition"
@@ -130,6 +120,7 @@ export function Hero() {
           </div>
         </>
       )}
+      
     </section>
   );
 }
