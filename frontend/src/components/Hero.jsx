@@ -43,7 +43,7 @@ export function Hero() {
       setCurrentImageIndex((prev) =>
         prev === heroImages.length - 1 ? 0 : prev + 1
       );
-    }, 6000); // ⬅️ velocidad más suave
+    }, 6000);
 
     return () => clearInterval(interval);
   }, [heroImages]);
@@ -60,45 +60,49 @@ export function Hero() {
       {heroImages.map((img, idx) => (
         <div
           key={img.id}
-          className={`absolute inset-0 transition-opacity duration-1000 ${
-            currentImageIndex === idx ? "opacity-100" : "opacity-0"
-          }`}
+          className={`absolute inset-0 transition-opacity duration-1000 ${currentImageIndex === idx ? "opacity-100" : "opacity-0"
+            }`}
         >
 
-          {/* 🔹 FONDO BLUR (full cover) */}
-          <img
-            src={img.imageUrl}
-            alt="Hero background"
-            className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-60"
-          />
 
-          {/* 🔹 GRADIENTE LATERAL (clave del efecto premium) */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-transparent to-black/80" />
+          <div className="absolute inset-0 overflow-hidden">
+            <img
+              src={img.imageUrl}
+              alt="Hero background"
+              className="absolute w-[140%] h-[140%] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 object-cover blur-2xl opacity-60"
+            />
+          </div>
 
-          {/* 🔹 IMAGEN PRINCIPAL (sin deformar) */}
+
+          <div className="absolute inset-0">
+            <div className="absolute left-0 top-0 h-full w-1/3 bg-white/10 blur-3xl" />
+            <div className="absolute right-0 top-0 h-full w-1/3 bg-white/10 blur-3xl" />
+          </div>
+
+
           <img
             src={img.imageUrl}
             alt="Hero"
             className="absolute inset-0 w-full h-full object-contain"
           />
+
         </div>
       ))}
 
-      {/* 🔹 GRADIENTE GENERAL ARRIBA/ABAJO */}
+
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
 
-      {/* 🔹 INDICADORES (dots) */}
+
       {heroImages.length > 1 && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
           {heroImages.map((_, idx) => (
             <button
               key={idx}
               onClick={() => setCurrentImageIndex(idx)}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                currentImageIndex === idx
+              className={`h-1.5 rounded-full transition-all duration-300 ${currentImageIndex === idx
                   ? "w-6 bg-white"
                   : "w-3 bg-white/50"
-              }`}
+                }`}
             />
           ))}
         </div>
