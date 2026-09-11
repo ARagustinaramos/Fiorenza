@@ -60,11 +60,12 @@ export function Hero() {
       {heroImages.map((img, idx) => (
         <div
           key={img.id}
-          className={`absolute inset-0 transition-opacity duration-1000 ${currentImageIndex === idx ? "opacity-100" : "opacity-0"
-            }`}
+          className={`absolute inset-0 transition-opacity duration-1000 ${
+            currentImageIndex === idx ? "opacity-100" : "opacity-0"
+          }`}
         >
 
-
+          {/* 🔥 FONDO BLUR CENTRADO (base real) */}
           <div className="absolute inset-0 overflow-hidden">
             <img
               src={img.imageUrl}
@@ -73,36 +74,37 @@ export function Hero() {
             />
           </div>
 
-
+          {/* 🔥 BLUR LATERAL SUAVE (SIN NEGRO, SOLO LUZ) */}
           <div className="absolute inset-0">
-            <div className="absolute left-0 top-0 h-full w-1/3 bg-white/10 blur-3xl" />
-            <div className="absolute right-0 top-0 h-full w-1/3 bg-white/10 blur-3xl" />
+            <div className="absolute left-0 top-0 h-full w-1/3 bg-white/5 blur-3xl" />
+            <div className="absolute right-0 top-0 h-full w-1/3 bg-white/5 blur-3xl" />
           </div>
 
-
+          {/* 🔥 IMAGEN PRINCIPAL (FULL WIDTH REAL, SIN FRANJAS) */}
           <img
             src={img.imageUrl}
             alt="Hero"
-            className="absolute inset-0 w-full h-full object-contain"
+            className="absolute inset-0 w-full h-full object-cover object-center"
           />
 
         </div>
       ))}
 
+      {/* 🔥 GRADIENTE GENERAL SUAVE */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
 
-      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
-
-
+      {/* 🔘 INDICADORES */}
       {heroImages.length > 1 && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
           {heroImages.map((_, idx) => (
             <button
               key={idx}
               onClick={() => setCurrentImageIndex(idx)}
-              className={`h-1.5 rounded-full transition-all duration-300 ${currentImageIndex === idx
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                currentImageIndex === idx
                   ? "w-6 bg-white"
                   : "w-3 bg-white/50"
-                }`}
+              }`}
             />
           ))}
         </div>
