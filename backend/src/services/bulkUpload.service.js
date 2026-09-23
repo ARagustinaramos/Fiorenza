@@ -21,18 +21,14 @@ const normalizeHeader = (text) => {
 
 const getCellValue = (cell) => {
   if (!cell) return "";
-  // Prefer displayed text when available (preserves leading zeros in CSV/Excel text formats)
   if (typeof cell === "object" && cell.text !== undefined) return cell.text;
   if (cell.value !== undefined && cell.value !== null) {
-    // Formula cells: ExcelJS stores { formula, result }
     if (typeof cell.value === "object" && cell.value.result !== undefined) {
       return cell.value.result;
     }
-    // Rich text: join text fragments
     if (typeof cell.value === "object" && Array.isArray(cell.value.richText)) {
       return cell.value.richText.map((t) => t.text).join("");
     }
-    // Hyperlinks keep the display text
     if (typeof cell.value === "object" && cell.value.text !== undefined) {
       return cell.value.text;
     }
@@ -96,34 +92,31 @@ const resolveCanonicalHeader = (rawHeader) => {
 };
 
 const normalizeBoolean = (value) =>
-  ["si", "sÃ­", "true", "1"].includes(value?.toString().trim().toLowerCase());
+  ["si", "sí­", "true", "1"].includes(value?.toString().trim().toLowerCase());
 
 const parseNumber = (value) => {
   if (value === null || value === undefined) return null;
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
 
-  let text = value.toString().trim();
-  if (!text) return null;
+let text = value.toString().trim();
 
-  // Remove currency symbols and spaces
-  text = text.replace(/\s+/g, "");
-  text = text.replace(/[^0-9,.-]/g, "");
+if (!text) return null;
 
-  const lastComma = text.lastIndexOf(",");
-  const lastDot = text.lastIndexOf(".");
+text = text.replace(/\s+/g, "");
+text = text.replace(/[^0-9,.-]/g, "");
 
-  if (lastComma !== -1 && lastDot !== -1) {
-    if (lastComma > lastDot) {
-      // 1.234,56 -> 1234.56
-      text = text.replace(/\./g, "").replace(",", ".");
-    } else {
-      // 1,234.56 -> 1234.56
-      text = text.replace(/,/g, "");
-    }
-  } else if (lastComma !== -1) {
-    // 1234,56 -> 1234.56
-    text = text.replace(",", ".");
+const lastComma = text.lastIndexOf(",");
+const lastDot = text.lastIndexOf(".");
+
+if (lastComma !== -1 && lastDot !== -1) {
+  if (lastComma > lastDot) {
+    text = text.replace(/\./g, "").replace(",", ".");
+  } else {
+    text = text.replace(/,/g, "");
   }
+} else if (lastComma !== -1) {
+  text = text.replace(",", ".");
+}
 
   const parsed = parseFloat(text);
   return Number.isFinite(parsed) ? parsed : null;
@@ -134,6 +127,14 @@ const parseOptionalText = (value) => {
   const text = value.toString().trim();
   return text === "" ? null : text;
 };
+
+const isBlankRowValue = (value) =>
+  value === null ||
+  value === undefined ||
+  (typeof value === "string" && value.trim() === "");
+
+const isEmptyDataRow = (rowData) =>
+  Object.values(rowData).every((value) => isBlankRowValue(value));
 
 const readFirstLine = async (filePath) => {
   const handle = await fs.open(filePath, "r");
@@ -300,9 +301,6 @@ const withRetry = async (fn, retries = 3) => {
 
 const updateProductsBatch = async (items) => {
   if (items.length === 0) return 0;
-
-  // Si el archivo trae el mismo producto mas de una vez en el mismo lote,
-  // dejamos ganar la ultima aparicion para que el update masivo sea deterministico.
   const rowsById = new Map();
   items.forEach(({ id, data }) => {
     rowsById.set(id, { id, ...data });
@@ -361,19 +359,53 @@ const dedupeProductsByCodigoInterno = (items) => {
   return Array.from(byCode.values());
 };
 
+const deactivateProductsMissingFromReplace = async (catalogCodes) => {
+  let lastId = null;
+
+  while (true) {
+    const products = await withRetry(() =>
+      prisma.product.findMany({
+        where: {
+          activo: true,
+          ...(lastId ? { id: { gt: lastId } } : {}),
+        },
+        select: {
+          id: true,
+          codigoInterno: true,
+        },
+        orderBy: { id: "asc" },
+        take: CHUNK_SIZE,
+      })
+    );
+
+    if (products.length === 0) return;
+
+    const idsToDeactivate = products
+      .filter((product) => !catalogCodes.has(product.codigoInterno))
+      .map((product) => product.id);
+
+    if (idsToDeactivate.length > 0) {
+      await withRetry(() =>
+        prisma.product.updateMany({
+          where: { id: { in: idsToDeactivate } },
+          data: { activo: false },
+        })
+      );
+    }
+
+    lastId = products[products.length - 1].id;
+
+    if (BATCH_DELAY_MS > 0) {
+      await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
+    }
+  }
+};
+
 export const runBulkUpload = async ({
   filePath,
   mode = "upsert",
   onProgress,
 }) => {
-  if (mode === "replace") {
-    await withRetry(() =>
-      prisma.product.updateMany({
-      data: { activo: false },
-      })
-    );
-  }
-
   const ext = path.extname(filePath).toLowerCase();
   const workbook = ext === ".csv" ? null : await loadWorkbookFromFile(filePath);
 
@@ -386,6 +418,13 @@ export const runBulkUpload = async ({
   const familyCache = new Map();
 
   let lastProgressAt = Date.now();
+  const replaceCatalogCodes = mode === "replace" ? new Set() : null;
+
+  const rememberReplaceCode = (item) => {
+    if (replaceCatalogCodes && item.codigoInterno) {
+      replaceCatalogCodes.add(item.codigoInterno);
+    }
+  };
 
   const notifyProgress = (forceImmediate = false) => {
     if (!onProgress) return;
@@ -495,6 +534,8 @@ export const runBulkUpload = async ({
           web: item.web,
         };
 
+        rememberReplaceCode(item);
+
         if (mode === "update") {
           if (!existingProduct) {
             perRowErrors.push({ status: "skipped" });
@@ -578,6 +619,10 @@ export const runBulkUpload = async ({
       let batch = [];
       for (let index = 0; index < rows.length; index++) {
         const row = rows[index];
+        if (isEmptyDataRow(row)) {
+          continue;
+        }
+
         totalRows++;
         try {
           const item = mapExcelToProduct(row);
@@ -616,17 +661,22 @@ export const runBulkUpload = async ({
     let batch = [];
 
       for (let i = firstDataRow; i <= worksheet.rowCount; i++) {
-        const row = worksheet.getRow(i);
-        totalRows++;
+  const row = worksheet.getRow(i);
 
-      const rowData = {};
-      headers.forEach((header, idx) => {
-        rowData[header] = getCellValue(row.getCell(idx + 1));
-      });
+  const rowData = {};
+  headers.forEach((header, idx) => {
+    rowData[header] = getCellValue(row.getCell(idx + 1));
+  });
 
-      try {
-        const item = mapExcelToProduct(rowData);
-        batch.push({ item, rowNumber: i });
+  if (isEmptyDataRow(rowData)) {
+    continue;
+  }
+
+  totalRows++;
+
+  try {
+    const item = mapExcelToProduct(rowData);
+    batch.push({ item, rowNumber: i });
       } catch (err) {
         skipped++;
         errors.push({
@@ -636,11 +686,15 @@ export const runBulkUpload = async ({
         });
       }
 
-        if (batch.length === CHUNK_SIZE || i === worksheet.rowCount) {
+        if (batch.length === CHUNK_SIZE) {
           const pending = batch;
           batch = [];
           await handleBatch(pending, worksheet.name);
         }
+      }
+
+      if (batch.length > 0) {
+        await handleBatch(batch, worksheet.name);
       }
     }
   }
@@ -648,13 +702,17 @@ export const runBulkUpload = async ({
   if (processedSheetCount === 0) {
     if (mode === "delete") {
       throw new Error(
-        "No se encontro una hoja con la columna CODIGO INTERNO en las primeras filas"
+        "No se encontró una hoja con la columna CODIGO INTERNO en las primeras filas"
       );
     }
 
     throw new Error(
-      `No se encontro una hoja con columnas requeridas: ${REQUIRED_COLUMNS.join(", ")}`
+      `No se encontró una hoja con columnas requeridas: ${REQUIRED_COLUMNS.join(", ")}`
     );
+  }
+
+  if (mode === "replace" && errors.length === 0) {
+    await deactivateProductsMissingFromReplace(replaceCatalogCodes);
   }
 
   // Notificación final forzada para asegurar que todos los contadores se escriban en la BD
